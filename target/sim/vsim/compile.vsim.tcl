@@ -1,5 +1,5 @@
 # This script was generated automatically by bender.
-set ROOT "/scratch2/pagonis/ope-highperf"
+set ROOT "/scratch2/pagonis/ope-engine"
 
 if {[catch { vlog -incr -sv \
     +acc -permissive -suppress 2583 -suppress 13314 \
@@ -671,12 +671,23 @@ if {[catch { vlog -incr -sv \
     "+incdir+$ROOT/.bender/git/checkouts/cv32e40x-b02547e8c1b6e597/sva" \
     "+incdir+$ROOT/.bender/git/checkouts/hci-5afd8126f874b49f/rtl/common" \
     "$ROOT/rtl/ope_pkg.sv" \
+    "$ROOT/rtl/hwpe_stream_addressgen_v3_custom.sv" \
+    "$ROOT/rtl/hci_core_source_custom.sv" \
+    "$ROOT/rtl/hci_core_sink_custom.sv" \
     "$ROOT/rtl/accumulation_reg.sv" \
+    "$ROOT/rtl/priority_enforcer.sv" \
+    "$ROOT/rtl/reg_array_io_wrapper.sv" \
     "$ROOT/rtl/ope_engine.sv" \
     "$ROOT/rtl/ope_ce.sv" \
+    "$ROOT/rtl/ope_ctrl.sv" \
     "$ROOT/rtl/ope_fma.sv" \
+    "$ROOT/rtl/ope_memory_scheduler.sv" \
     "$ROOT/rtl/ope_sdotp_wrapper.sv" \
     "$ROOT/rtl/ope_sdotp.sv" \
+    "$ROOT/rtl/ope_streamer_x_w.sv" \
+    "$ROOT/rtl/ope_streamer_y_z.sv" \
+    "$ROOT/rtl/ope_tiler.sv" \
+    "$ROOT/rtl/ope_top.sv" \
 }]} {return 1}
 
 if {[catch { vlog -incr -sv \
