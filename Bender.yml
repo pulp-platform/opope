@@ -1,0 +1,76 @@
+# Copyright 2023 ETH Zurich and University of Bologna.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Yvan Tortorella <yvan.tortorella@unibo.it>
+#
+# Bender manifest
+
+package:
+  name: redmule
+  authors:
+    - "Yvan Tortorella (yvan.tortorella@unibo.it)"
+
+dependencies:
+  cv32e40p          : { git: "https://github.com/pulp-platform/cv32e40p.git"          , rev: "pulpissimo-v4.1.0"                      }
+  cv32e40x          : { git: "https://github.com/pulp-platform/cv32e40x.git"          , rev: "redmule-v1.0"                           }
+  ibex              : { git: "https://github.com/pulp-platform/ibex.git"              , rev: pulpissimo-v6.1.2                        }
+  hwpe-stream       : { git: "https://github.com/pulp-platform/hwpe-stream.git"       , version: 1.7                                  }
+  hwpe-ctrl         : { git: "https://github.com/pulp-platform/hwpe-ctrl.git"         , rev: 0e95510c0f4d43452d21b7723d766ae92e45c101 } # branch: yt/task-interfaces
+  hci               : { git: "https://github.com/pulp-platform/hci.git"               , rev: v2.1.2                                   }
+  fpnew             : { git: "https://github.com/pulp-platform/cvfpu.git"             , rev: "pulp-v0.1.3"                            }
+  common_cells      : { git: "https://github.com/pulp-platform/common_cells.git"      , version: 1.21.0                               }
+  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.11                               }
+
+sources:
+  files:
+  # OPE
+    - rtl/ope_pkg.sv
+    # - rtl/hwpe_stream_addressgen_v3_custom.sv
+    # - rtl/hci_core_source_custom.sv
+    # - rtl/hci_core_sink_custom.sv
+    - rtl/accumulation_reg.sv
+    # - rtl/priority_enforcer.sv
+    # - rtl/reg_array_io_wrapper.sv
+    - rtl/ope_engine.sv
+    - rtl/ope_ce.sv
+    # - rtl/ope_ctrl.sv
+    - rtl/ope_fma.sv
+    # - rtl/ope_memory_scheduler.sv
+    - rtl/ope_sdotp_wrapper.sv
+    - rtl/ope_sdotp.sv
+    # - rtl/ope_streamer_x_w.sv
+    # - rtl/ope_streamer_y_z.sv
+    # - rtl/ope_tiler.sv
+    # - rtl/ope_top.sv
+
+    - target: redmule_hwpe
+      files:
+        - rtl/ope_wrap.sv
+
+    - target: redmule_complex
+      files:
+        - rtl/redmule_inst_decoder.sv
+        - rtl/redmule_complex.sv
+        - rtl/redmule_complex_wrap.sv
+
+    - target: redmule_test_hwpe_gate
+      files:
+        - redmule-gf12/synopsys/out/ope_sspg_0p495v_125c_1ns_4_reg_multiple_paths/netlist_ope.v
+        # - redmule-gf12/small/netlist_ope.v
+
+    - target: any(redmule_test_complex, redmule_test_hwpe)
+      files:
+        - target/sim/src/tb_dummy_memory.sv
+
+    - target: redmule_test_complex
+      files:
+        - target/sim/src/redmule_complex_tb.sv
+
+    - target: redmule_test_hwpe
+      files:
+        - target/sim/src/redmule_tb.sv
+
+    - target: vsim
+      files:
+        - target/sim/src/redmule_tb_wrap.sv
