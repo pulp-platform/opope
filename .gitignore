@@ -27,5 +27,5 @@ target/sim/vsim/wlftGFPskt
 !/redmule-gf12/synopsys/power.sh
 !/redmule-gf12/synopsys/Makefile
 
-!/redmule-gf12/synopsys/scripts
+!/redmule-gf12/synopsys/scripts/**
 target/sim/verilator
