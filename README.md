@@ -24,4 +24,17 @@ make hw-clean sw-clean synth-ips hw-script hw-build sw-build hw-run target=vsim
 
 Carefull you may need to adjust some full paths
 
+## Getting started
+Clone the repo into an already cloned [redmule](https://github.com/pulp-platform/redmule) one and move into it. Launch:
+```
+icdesign gf12 -update all -nogui
+```
 
+Then move into the `synopsys` folder and launch:
+```
+make clean run
+```
+
+Step-by-step reports are under `reports`. Final reports are under `out`.
+
+See you!
