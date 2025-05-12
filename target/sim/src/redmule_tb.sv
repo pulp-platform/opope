@@ -567,7 +567,7 @@ module redmule_tb
     $display("[TB] %d - VCD dump started", global_counter);
 
     // $dumpfile(`VCD_DUMP_FILE);
-    $dumpfile("/scratch2/pagonis/ope-highperf/redmule-gf12/modelsim/vcd/ope_highperf.vcd");
+    $dumpfile("../../../redmule-gf12/modelsim/vcd/ope_highperf.vcd");
     $dumpvars(0, i_redmule_wrap);
     $dumpon;
 
@@ -583,9 +583,9 @@ module redmule_tb
 
   initial begin
 
-    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) stim_instr = "/scratch2/pagonis/ope-highperf/sw/build/stim_instr.txt";
-    if (!$value$plusargs("STIM_DATA_X_W=%s", stim_data_x_w)) stim_data_x_w = "/scratch2/pagonis/ope-highperf/sw/build/stim_data_x_w.txt";
-    if (!$value$plusargs("STIM_DATA_Y_Z=%s", stim_data_y_z)) stim_data_y_z = "/scratch2/pagonis/ope-highperf/sw/build/stim_data_y_z.txt";
+    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) stim_instr = "../../../sw/build/stim_instr.txt";
+    if (!$value$plusargs("STIM_DATA_X_W=%s", stim_data_x_w)) stim_data_x_w = "../../../sw/build/stim_data_x_w.txt";
+    if (!$value$plusargs("STIM_DATA_Y_Z=%s", stim_data_y_z)) stim_data_y_z = "../../../sw/build/stim_data_y_z.txt";
 
     test_mode = 1'b0;
     core_boot_addr = 32'h1C000084;
