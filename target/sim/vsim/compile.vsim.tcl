@@ -1,5 +1,5 @@
 # This script was generated automatically by bender.
-set ROOT "/scratch2/pagonis/ope-engine"
+set ROOT "/scratch/dcammarata/ope-engine"
 
 if {[catch { vlog -incr -sv \
     +acc -permissive -suppress 2583 -suppress 13314 \

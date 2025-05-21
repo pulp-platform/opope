@@ -22,7 +22,7 @@ module redmule_tb
 );
 
   localparam int unsigned DW = ope_pkg::DATA_W;
-  ope_pkg::cntrl_scheduler_t debug_cntrl_scheduler;
+  // ope_pkg::cntrl_scheduler_t debug_cntrl_scheduler;
 
   // parameters
   localparam int unsigned PROB_STALL = 0;
@@ -308,7 +308,7 @@ module redmule_tb
     .tcdm_r_user_y_z_i      ( tcdm_r_user_y_z        ),
     .tcdm_r_ecc_y_z_i       ( tcdm_r_ecc_y_z         ),
 
-    .debug_cntrl_scheduler_o(debug_cntrl_scheduler),
+    // .debug_cntrl_scheduler_o(debug_cntrl_scheduler),
     .periph_req_i       ( periph_req         ),
     .periph_gnt_o       ( periph_gnt         ),
     .periph_add_i       ( periph_add         ),
@@ -480,7 +480,7 @@ module redmule_tb
   int channel_valid_count;
   always_ff @(posedge clk_i) begin
     global_counter <= global_counter + 1;
-    if (global_counter % 200 == 0) $display("[%0t] Cycle: %0d", $time, global_counter);
+    // if (global_counter % 200 == 0) $display("[%0t] Cycle: %0d", $time, global_counter);
   end
   always_ff @(posedge clk_i) begin 
     if (!counting && (prev_tcdm_r_data == 'b0) && (tcdm_r_data_y_z != 'b0)) begin // FIXME: this needs rethinking
@@ -510,8 +510,12 @@ module redmule_tb
   logic prev_finished_redmule, finished_redmule;
   
   assign check_start_config = (periph_req && (periph_add[7:0] == 'h54) && (!periph_wen) && (periph_gnt)) ? 1'b1: 1'b0;
-  assign finished_redmule = debug_cntrl_scheduler.finished;
-  // assign finished_redmule = i_redmule_wrap.debug_cntrl_scheduler_o_finished_;
+
+`ifdef REDMULE_HWPE_SYNTH
+  assign finished_redmule = i_redmule_wrap.i_redmule_top.cntrl_scheduler_finished_;
+`else
+  assign finished_redmule = i_redmule_wrap.i_redmule_top.cntrl_scheduler.finished;
+`endif
 
   always_ff @(posedge clk_i) begin 
     if (!periphery_counting && (prev_check_start_config == 1'b0) && (check_start_config == 1'b1)) begin 
@@ -567,7 +571,7 @@ module redmule_tb
     $display("[TB] %d - VCD dump started", global_counter);
 
     // $dumpfile(`VCD_DUMP_FILE);
-    $dumpfile("../../../redmule-gf12/modelsim/vcd/ope_highperf.vcd");
+    $dumpfile("/scratch/dcammarata/ope-engine/redmule-gf12/modelsim/vcd/ope_highperf.vcd");
     $dumpvars(0, i_redmule_wrap);
     $dumpon;
 
@@ -583,9 +587,9 @@ module redmule_tb
 
   initial begin
 
-    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) stim_instr = "../../../sw/build/stim_instr.txt";
-    if (!$value$plusargs("STIM_DATA_X_W=%s", stim_data_x_w)) stim_data_x_w = "../../../sw/build/stim_data_x_w.txt";
-    if (!$value$plusargs("STIM_DATA_Y_Z=%s", stim_data_y_z)) stim_data_y_z = "../../../sw/build/stim_data_y_z.txt";
+    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) stim_instr = "/scratch/dcammarata/ope-engine/sw/build/stim_instr.txt";
+    if (!$value$plusargs("STIM_DATA_X_W=%s", stim_data_x_w)) stim_data_x_w = "/scratch/dcammarata/ope-engine/sw/build/stim_data_x_w.txt";
+    if (!$value$plusargs("STIM_DATA_Y_Z=%s", stim_data_y_z)) stim_data_y_z = "/scratch/dcammarata/ope-engine/sw/build/stim_data_y_z.txt";
 
     test_mode = 1'b0;
     core_boot_addr = 32'h1C000084;

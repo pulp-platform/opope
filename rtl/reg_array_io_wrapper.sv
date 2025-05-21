@@ -35,11 +35,10 @@ module reg_array_io_wrapper
   always_comb begin
     reading_counter_d     = reading_counter_q;
     serial_counter_d      = serial_counter_q;
-    data_o                = 'b0;
+    data_o                = reg_q[reading_counter_q];
     valid_o               = 1'b0;
 
     if (reading_reg_i && reg_valid_q[reading_counter_q]) begin
-      data_o                            = reg_q[reading_counter_q];
       valid_o                           = 1'b1;
       if (READING_POLICY == ope_pkg::INTERLEAVED) begin // Read from different registers all the time, rotating back
         reading_counter_d               = reading_counter_q + 1;

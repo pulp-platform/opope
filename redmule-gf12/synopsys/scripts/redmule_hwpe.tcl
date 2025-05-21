@@ -4,8 +4,8 @@
 remove_design -design
 set reports  "reports"
 set out      "out"
-set DESIGN   "ope_engine"
-# set DESIGN   "ope"
+# set DESIGN   "ope_engine"
+set DESIGN   "ope"
 # Corner options are ffpg, sspg, tt
 set corner   "sspg"
 # Voltage otions are: 0.495, 0.585, 0.63, 0.72, 0.81
@@ -47,8 +47,8 @@ source -echo -verbose ../../scripts/synth_compile.tcl > ${REPORTS}/01_analyze_${
 # ------------------------------------------------------------------------------
 # Elaborate Design
 # ------------------------------------------------------------------------------
-elaborate ${DESIGN} > ${REPORTS}/02_elaborate_${DESIGN}.rpt
-# elaborate ${DESIGN}_wrap > ${REPORTS}/02_elaborate_${DESIGN}.rpt
+# elaborate ${DESIGN} > ${REPORTS}/02_elaborate_${DESIGN}.rpt
+elaborate ${DESIGN}_wrap > ${REPORTS}/02_elaborate_${DESIGN}.rpt
 
 #-------------------------------------------------------------------------------
 # Timing loop check

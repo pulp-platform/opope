@@ -44,7 +44,7 @@ module ope_top
   // Periph slave port for the controller side
   hwpe_ctrl_intf_periph.slave periph,
 `endif
-  output cntrl_scheduler_t        debug_cntrl_scheduler_o,
+  // output cntrl_scheduler_t        debug_cntrl_scheduler_o,
   // TCDM master ports for the memory side
   hci_core_intf.initiator tcdm_x_w, 
   hci_core_intf.initiator tcdm_y_z 
@@ -362,7 +362,7 @@ always_comb begin
 end
 
 logic priority_enforcer_enable;
-assign reg_enable = (priority_enforcer_enable || busy) ? 1'b1 : 1'b0;
+assign reg_enable = priority_enforcer_enable;
 logic engine_out_valid;
 logic [Width-1:0][BITW-1:0] engine_out_data;
 logic accumulation_reg_full_first;
@@ -381,6 +381,8 @@ ope_engine     #(
   .w_input_i          ( w_reg_to_engine_data       ),
   .y_bias_i           ( y_buffer_d.data),
   .z_output_o         (engine_out_data),
+   
+   // From controller
   .fma_is_boxed_i     ( fma_is_boxed     ),
   .noncomp_is_boxed_i ( noncomp_is_boxed ),
   .stage1_rnd_i       ( stage1_rnd       ),
@@ -393,12 +395,17 @@ ope_engine     #(
   .op_mod_i           ( op_mod           ),
   .tag_i              ( in_tag           ),
   .aux_i              ( in_aux           ),
+  .reg_enable_i       ( reg_enable       ),
+  .flush_i            ( engine_flush            ),
+
+  // From reg_io_wrapper
   .in_valid_i         ( reg_to_engine_valid         ),
   .y_in_valid_i       ( y_buffer_d.valid),
   .in_ready_o         ( in_ready         ),
-  .reg_enable_i       ( reg_enable       ),
-  .flush_i            ( engine_flush            ),
+
+  // Memory Scheduler
   .iteration_change_i (memory_scheduler_next_iteration),
+  .single_iteration_i ( single_iteration   ),
   .status_o           ( status           ),
   .extension_bit_o    ( extension_bit    ),
   .class_mask_o       ( class_mask       ),
@@ -410,11 +417,10 @@ ope_engine     #(
   .accumulation_reg_y_ready_o (y_buffer_d.ready),
   .accumulation_reg_z_valid_o (z_buffer_d.valid),
   .accumulation_reg_full_first_o (accumulation_reg_full_first),
-  .single_iteration_i ( single_iteration   ),
   .last_iteration_i   ( flgs_streamer.y_stream_source_flags.done ),
   .done_i             ( flgs_streamer.z_stream_sink_flags.done ),
   .busy_o             ( busy             ),
-  .cntrl_engine_i     ( cntrl_engine     )
+  .cntrl_engine_i     ( cntrl_engine     ) // Only inner loop count is used from this!
 );
 
 /*---------------------------------------------------------------*/
@@ -499,7 +505,7 @@ priority_enforcer #(
   .custom_priority_o       ( custom_priority          )
 );
 
-  assign debug_cntrl_scheduler_o = cntrl_scheduler;
+  // assign debug_cntrl_scheduler_o = cntrl_scheduler;
 
 
   assign z_buffer_d.data = engine_out_data;

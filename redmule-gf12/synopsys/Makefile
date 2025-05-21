@@ -16,7 +16,7 @@
 SYNPT    ?= primetime-2022.03 pt_shell
 NAME     ?= redmule_tb_opt
 VCD			 ?= ../modelsim/vcd/ope_highperf.vcd
-VendorDir ?= /scratch2/pagonis/ope-highperf/vendor
+VendorDir ?= /scratch/dcammarata/ope-engine/vendor
 InstallDir ?= $(VendorDir)/install
 CargoInstallDir := $(InstallDir)/cargo
 Bender     ?= $(CargoInstallDir)/bin/bender
@@ -34,7 +34,7 @@ VsimCompileScript := compile_power.vsim.tcl
 TCP   ?= 2
 PARAM += set TCP ${TCP}
 
-module_vcd ?= 1
+module_vcd ?= 0
 tck       := 2
 
 DEFS := -DCLKPERIOD=$(tck)ns
@@ -48,7 +48,7 @@ common_targs += -t redmule_hwpe
 common_targs += -e cv32e40x
 common_targs += -t DEBUG
 common_targs += -t redmule_test_hwpe 
-common_targs += -t redmule_test_hwpe_gate 
+# common_targs += -t redmule_test_hwpe_gate 
 
 common_defs  += -D COREV_ASSERT_OFF
 

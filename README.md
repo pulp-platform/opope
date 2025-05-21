@@ -57,7 +57,7 @@ in redmule_tb.sv
 fix the path in the vcd generation
 
 ```
-cd redmule-gf12/synophis
+cd redmule-gf12/synopsys
 make hw-script-power
 make run-power-analysis
 ```

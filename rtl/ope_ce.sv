@@ -10,7 +10,7 @@ module ope_ce
   import ope_pkg::*;
 #(
   parameter fpnew_pkg::fp_format_e   FpFormat    = fpnew_pkg::FP32              ,
-  parameter int unsigned             NumPipeRegs = 2                            ,
+  parameter int unsigned             NumPipeRegs = 4                            ,
   parameter fpnew_pkg::pipe_config_t PipeConfig  = fpnew_pkg::DISTRIBUTED       ,
   parameter type                     TagType     = logic                        ,
   parameter type                     AuxType     = logic                        ,
@@ -185,31 +185,31 @@ module ope_ce
     sdotp_in_valid_d        = sdotp_in_valid;
   end
 
-  always_ff @(posedge sdotp_clk, negedge rst_ni) begin
-    if (~rst_ni) begin
-      sdotp_operands_q      <= '0;
-      sdotp_is_boxed_int_q  <= '0;
-      sdotp_rnd_int_q       <= fpnew_pkg::RNE;
-      sdotp_op1_q           <= fpnew_pkg::SDOTP;
-      sdotp_op_mod_q        <= '0;
-      sdotp_computing_fmt_q <= fpnew_pkg::FP16;
-      sdotp_memory_fmt_q    <= fpnew_pkg::FP16;
-      sdotp_input_tag_q     <= '0;
-      sdotp_input_aux_q     <= '0;
-      sdotp_in_valid_q      <= 1'b0;
-    end else begin
-      sdotp_operands_q      <= sdotp_operands_d;
-      sdotp_is_boxed_int_q  <= sdotp_is_boxed_int_d;
-      sdotp_rnd_int_q       <= sdotp_rnd_int_d;
-      sdotp_op1_q           <= sdotp_op1_d;
-      sdotp_op_mod_q        <= sdotp_op_mod_d;
-      sdotp_computing_fmt_q <= sdotp_computing_fmt_d;
-      sdotp_memory_fmt_q    <= sdotp_memory_fmt_d;
-      sdotp_input_tag_q     <= sdotp_input_tag_d;
-      sdotp_input_aux_q     <= sdotp_input_aux_d;
-      sdotp_in_valid_q      <= sdotp_in_valid_d;
-    end
-  end
+  // always_ff @(posedge sdotp_clk, negedge rst_ni) begin
+  //   if (~rst_ni) begin
+  //     sdotp_operands_q      <= '0;
+  //     sdotp_is_boxed_int_q  <= '0;
+  //     sdotp_rnd_int_q       <= fpnew_pkg::RNE;
+  //     sdotp_op1_q           <= fpnew_pkg::SDOTP;
+  //     sdotp_op_mod_q        <= '0;
+  //     sdotp_computing_fmt_q <= fpnew_pkg::FP16;
+  //     sdotp_memory_fmt_q    <= fpnew_pkg::FP16;
+  //     sdotp_input_tag_q     <= '0;
+  //     sdotp_input_aux_q     <= '0;
+  //     sdotp_in_valid_q      <= 1'b0;
+  //   end else begin
+  //     sdotp_operands_q      <= sdotp_operands_d;
+  //     sdotp_is_boxed_int_q  <= sdotp_is_boxed_int_d;
+  //     sdotp_rnd_int_q       <= sdotp_rnd_int_d;
+  //     sdotp_op1_q           <= sdotp_op1_d;
+  //     sdotp_op_mod_q        <= sdotp_op_mod_d;
+  //     sdotp_computing_fmt_q <= sdotp_computing_fmt_d;
+  //     sdotp_memory_fmt_q    <= sdotp_memory_fmt_d;
+  //     sdotp_input_tag_q     <= sdotp_input_tag_d;
+  //     sdotp_input_aux_q     <= sdotp_input_aux_d;
+  //     sdotp_in_valid_q      <= sdotp_in_valid_d;
+  //   end
+  // end
 
 
   logic [2:0][BITW-1:0]                       fma_operands_d, fma_operands_q;
@@ -233,62 +233,63 @@ module ope_ce
   end
 
 
-  always_ff @(posedge fma_clk, negedge rst_ni) begin
-    if (~rst_ni) begin
-      fma_operands_q      <= '0;
-      fma_is_boxed_int_q  <= '0;
-      fma_rnd_int_q       <= fpnew_pkg::RNE;
-      fma_op1_q           <= fpnew_pkg::FMADD;
-      fma_op_mod_q        <= '0;
-      fma_input_tag_q     <= '0;
-      fma_input_aux_q     <= '0;
-      fma_in_valid_q      <= 1'b0;
-    end else begin
-      fma_operands_q      <= fma_operands_d;
-      fma_is_boxed_int_q  <= fma_is_boxed_int_d;
-      fma_rnd_int_q       <= fma_rnd_int_d;
-      fma_op1_q           <= fma_op1_d;
-      fma_op_mod_q        <= fma_op_mod_d;
-      fma_input_tag_q     <= fma_input_tag_d;
-      fma_input_aux_q     <= fma_input_aux_d;
-      fma_in_valid_q      <= fma_in_valid_d;
-    end
-  end
+  // always_ff @(posedge fma_clk, negedge rst_ni) begin
+  //   if (~rst_ni) begin
+  //     fma_operands_q      <= '0;
+  //     fma_is_boxed_int_q  <= '0;
+  //     fma_rnd_int_q       <= fpnew_pkg::RNE;
+  //     fma_op1_q           <= fpnew_pkg::FMADD;
+  //     fma_op_mod_q        <= '0;
+  //     fma_input_tag_q     <= '0;
+  //     fma_input_aux_q     <= '0;
+  //     fma_in_valid_q      <= 1'b0;
+  //   end else begin
+  //     fma_operands_q      <= fma_operands_d;
+  //     fma_is_boxed_int_q  <= fma_is_boxed_int_d;
+  //     fma_rnd_int_q       <= fma_rnd_int_d;
+  //     fma_op1_q           <= fma_op1_d;
+  //     fma_op_mod_q        <= fma_op_mod_d;
+  //     fma_input_tag_q     <= fma_input_tag_d;
+  //     fma_input_aux_q     <= fma_input_aux_d;
+  //     fma_in_valid_q      <= fma_in_valid_d;
+  //   end
+  // end
 
 
 
   ope_sdotp_wrapper #(
     .LaneWidth        ( fpnew_pkg::fp_width(FpFormat) ), // Should be 32
     .FpFmtConfig      ( FpFmtConfig                   ),
-    .NumPipeRegs      ( NumPipeRegs - 1               ),
+    .NumPipeRegs      ( NumPipeRegs                   ),
+    // .NumPipeRegs      ( NumPipeRegs - 1               ),
     .PipeConfig       ( PipeConfig                    ),
     .Stallable        ( Stallable                     ) 
   ) i_sdotp (
     .clk_i            ( sdotp_clk           ), 
     .rst_ni           ( rst_ni              ),
     .sdotp_hart_id_i  ( '0                  ),
-    .operands_i       ( sdotp_operands_q     ),
-    .is_boxed_i       ( sdotp_is_boxed_int_q ),
-    .rnd_mode_i       ( sdotp_rnd_int_q      ),
-    .op_i             ( sdotp_op1_q         ),
-    .op_mod_i         ( sdotp_op_mod_q      ),
-    .src_fmt_i        ( sdotp_computing_fmt_q  ),
-    .dst_fmt_i        ( sdotp_memory_fmt_q     ),
-    .tag_i            ( sdotp_input_tag_q    ),
-    .mask_i           ( '0                  ),
-    .aux_i            ( sdotp_input_aux_q    ),
-    .in_valid_i       ( sdotp_in_valid_q     ),
-    // .operands_i       ( sdotp_operands      ),
-    // .is_boxed_i       ( sdotq_is_boxed_int  ), 
-    // .rnd_mode_i       ( sdotp_rnd_int       ),
-    // .op_i             ( op1_i               ),    
-    // .op_mod_i         ( sdotp_op_mod        ),
-    // .src_fmt_i        ( computing_fmt_fpnew ),
-    // .dst_fmt_i        ( memory_fmt_fpnew    ),
-    // .tag_i            ( sdotp_input_tag     ),
+    // .operands_i       ( sdotp_operands_q     ),
+    // .is_boxed_i       ( sdotp_is_boxed_int_q ),
+    // .rnd_mode_i       ( sdotp_rnd_int_q      ),
+    // .op_i             ( sdotp_op1_q         ),
+    // .op_mod_i         ( sdotp_op_mod_q      ),
+    // .src_fmt_i        ( sdotp_computing_fmt_q  ),
+    // .dst_fmt_i        ( sdotp_memory_fmt_q     ),
+    // .tag_i            ( sdotp_input_tag_q    ),
     // .mask_i           ( '0                  ),
-    // .aux_i            ( sdotp_input_aux     ),
-    // .in_valid_i       ( sdotp_in_valid      ),
+    // .aux_i            ( sdotp_input_aux_q    ),
+    // .in_valid_i       ( sdotp_in_valid_q     ),
+    .operands_i       ( sdotp_operands      ),
+    .is_boxed_i       ( sdotq_is_boxed_int  ), 
+    .rnd_mode_i       ( sdotp_rnd_int       ),
+    .op_i             ( op1_i               ),    
+    .op_mod_i         ( sdotp_op_mod        ),
+    .src_fmt_i        ( computing_fmt_fpnew ),
+    .dst_fmt_i        ( memory_fmt_fpnew    ),
+    .tag_i            ( sdotp_input_tag     ),
+    .mask_i           ( '0                  ),
+    .aux_i            ( sdotp_input_aux     ),
+    .in_valid_i       ( sdotp_in_valid      ),
     .in_ready_o       ( sdotp_in_ready      ),
     .reg_enable_i     ( sdotp_reg_enable    ), 
     .flush_i          ( sdotp_flush         ),
@@ -307,28 +308,29 @@ module ope_ce
 
   ope_fma   #(
     .FpFormat    ( FpFormat    ),
-    .NumPipeRegs ( NumPipeRegs - 1),
+    // .NumPipeRegs ( NumPipeRegs - 1),
+    .NumPipeRegs ( NumPipeRegs ),
     .PipeConfig  ( PipeConfig  ),
     .Stallable   ( Stallable   )
   ) i_fma    (
     .clk_i           ( fma_clk           ),
     .rst_ni          ( rst_ni            ),
-    .operands_i     ( fma_operands_q     ),
-    .is_boxed_i     ( fma_is_boxed_int_q ),
-    .rnd_mode_i     ( fma_rnd_int_q      ),
-    .op_i           ( fma_op1_q         ),
-    .op_mod_i       ( fma_op_mod_q      ),
-    .tag_i          ( fma_input_tag_q    ),
-    .aux_i          ( fma_input_aux_q    ),
-    .in_valid_i     ( fma_in_valid_q     ),
-    // .operands_i      ( fma_operands      ),
-    // .is_boxed_i      ( fma_is_boxed_int  ),
-    // .rnd_mode_i      ( fma_rnd_int       ),
-    // .op_i            ( op1_i             ),
-    // .op_mod_i        ( fma_op_mod        ),
-    // .tag_i           ( fma_input_tag     ),
-    // .aux_i           ( fma_input_aux     ),
-    // .in_valid_i      ( fma_in_valid      ),
+    // .operands_i     ( fma_operands_q     ),
+    // .is_boxed_i     ( fma_is_boxed_int_q ),
+    // .rnd_mode_i     ( fma_rnd_int_q      ),
+    // .op_i           ( fma_op1_q         ),
+    // .op_mod_i       ( fma_op_mod_q      ),
+    // .tag_i          ( fma_input_tag_q    ),
+    // .aux_i          ( fma_input_aux_q    ),
+    // .in_valid_i     ( fma_in_valid_q     ),
+    .operands_i      ( fma_operands      ),
+    .is_boxed_i      ( fma_is_boxed_int  ),
+    .rnd_mode_i      ( fma_rnd_int       ),
+    .op_i            ( op1_i             ),
+    .op_mod_i        ( fma_op_mod        ),
+    .tag_i           ( fma_input_tag     ),
+    .aux_i           ( fma_input_aux     ),
+    .in_valid_i      ( fma_in_valid      ),
     .in_ready_o      ( fma_in_ready      ),
     .reg_enable_i    ( fma_reg_enable    ),
     .flush_i         ( fma_flush         ),

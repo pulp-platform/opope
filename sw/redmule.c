@@ -40,6 +40,10 @@ int main() {
 
   int offload_id_tmp, offload_id;
 
+  // Start RedMulE operation and sleeping until the end of computation
+  printf("Executing %dx%dx%d GeMM\n", m_size,k_size,n_size);
+  printf("Triggering accelerator and going to sleep...\n");
+
   // Enable RedMulE
   hwpe_cg_enable();
 
@@ -50,9 +54,6 @@ int main() {
 
   redmule_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size, k_size,
               (uint8_t)gemm_ops, comp_fmt, mem_fmt); // Keep the gemm_ops GEMM for both the sdotp and the fma
-
-  // Start RedMulE operation and sleeping until the end of computation
-  printf("Triggering accelerator and going to sleep...\n");
   hwpe_trigger_job();
 
   asm volatile("wfi" ::: "memory");

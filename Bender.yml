@@ -56,7 +56,7 @@ sources:
 
     - target: redmule_test_hwpe_gate
       files:
-        - redmule-gf12/synopsys/out/ope_sspg_0p495v_125c_1ns_4_reg_multiple_paths/netlist_ope.v
+        - redmule-gf12/synopsys/out/ope_sspg_0p495v_125c_1ns_3_1_20250513_1253/netlist_ope.v
         # - redmule-gf12/small/netlist_ope.v
 
     - target: any(redmule_test_complex, redmule_test_hwpe)

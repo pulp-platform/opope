@@ -25,7 +25,7 @@ XLEN       ?= 32
 XTEN       ?= imc_zicsr
 PYTHON     ?= python3
 
-target ?= verilator
+target ?= vsim
 TargetPath := $(SimDir)/$(target)
 
 # Included makefrags
