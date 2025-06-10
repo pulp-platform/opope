@@ -11,7 +11,7 @@ import hwpe_stream_package::*;
 
 package ope_pkg;
 
-  parameter int unsigned            DATA_W       = 16*8 + 32;
+  parameter int unsigned            DATA_W       = 32*8 + 32;
   // parameter int unsigned            DATA_W       = 32*4 + 32;                                  
   parameter int unsigned            MemDw        = 32;
   parameter int unsigned            NumByte      = MemDw/8;
@@ -157,10 +157,10 @@ package ope_pkg;
   } hci_streamer_ctrl_custom_t; 
 
   typedef struct packed {
-    hci_streamer_ctrl_custom_t x_stream_source_ctrl;
-    hci_streamer_ctrl_custom_t w_stream_source_ctrl;
-    hci_streamer_ctrl_custom_t y_stream_source_ctrl;
-    hci_streamer_ctrl_custom_t z_stream_sink_ctrl;
+    hci_package::hci_streamer_ctrl_t x_stream_source_ctrl;
+    hci_package::hci_streamer_ctrl_t w_stream_source_ctrl;
+    hci_package::hci_streamer_ctrl_t y_stream_source_ctrl;
+    hci_package::hci_streamer_ctrl_t z_stream_sink_ctrl;
     fpnew_pkg::fp_format_e           input_cast_src_fmt;
     fpnew_pkg::fp_format_e           input_cast_dst_fmt;
     fpnew_pkg::fp_format_e           output_cast_src_fmt;

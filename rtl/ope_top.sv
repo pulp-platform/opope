@@ -46,8 +46,7 @@ module ope_top
 `endif
   // output cntrl_scheduler_t        debug_cntrl_scheduler_o,
   // TCDM master ports for the memory side
-  hci_core_intf.initiator tcdm_x_w, 
-  hci_core_intf.initiator tcdm_y_z 
+  hci_core_intf.initiator tcdm
 );
 
 localparam int unsigned DATAW_ALIGN = DATAW;
@@ -94,8 +93,8 @@ logic                       start_cfg, cfg_complete;
 // Streamer control signals and flags
 cntrl_streamer_t cntrl_streamer;
 flgs_streamer_t  flgs_streamer;
-flgs_streamer_t  flgs_streamer_x_w;
-flgs_streamer_t  flgs_streamer_y_z;
+// flgs_streamer_t  flgs_streamer_x_w;
+// flgs_streamer_t  flgs_streamer_y_z;
 
 cntrl_engine_t   cntrl_engine;
 
@@ -126,6 +125,10 @@ x_regbuffer_ctrl_t x_regbuffer_ctrl;
 logic memory_scheduler_done;
 logic memory_scheduler_next_iteration;
 
+logic mask_streamer, mask_z;
+logic x_ready,w_ready,y_ready,z_valid;
+logic last_iteration_d,last_iteration_q;
+
 /*--------------------------------------------------------------*/
 /* |                         Streamer                         | */
 /*--------------------------------------------------------------*/
@@ -151,61 +154,14 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer_fifo      ( .c
 
 
 logic w_granted, x_granted;
-logic [1:0][$clog2(2)-1:0] custom_priority;
+logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
 logic custom_priority_force;
 
 // The streamer will present a single master TCDM port used to stream data to and from the memeory.
-// ope_streamer #(
-//   .DW             ( DW                           ),
-//   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
-// ) i_streamer      (
-//   .clk_i                    ( clk_i                 ),
-//   .rst_ni                   ( rst_ni                ),
-//   .test_mode_i              ( test_mode_i           ),
-//   // Controller generated signals
-//   .enable_i                 ( 1'b1                  ),
-//   .clear_i                  ( clear                 ),
-//   // Source interfaces for the incoming streams
-//   .x_stream_o               ( x_buffer_d            ),
-//   .w_stream_o               ( w_buffer_d            ),
-//   .y_stream_o               ( y_buffer_d            ),
-//   // Sink interface for the outgoing stream
-//   .z_stream_i               ( z_buffer_q),
-//   // Master TCDM interface ports for the memory side
-//   .tcdm                     ( tcdm_x_w                  ),
-//   .custom_priority_force_i  ( custom_priority_force ),
-//   .custom_priority_i        ( custom_priority       ),
-//   .x_granted_o              ( x_granted             ),
-//   .w_granted_o              ( w_granted             ),
-
-//   .ctrl_i                   ( cntrl_streamer        ),
-//   .flags_o                  ( flgs_streamer         )
-// );
-
-ope_streamer_y_z #(
+ope_streamer #(
   .DW             ( DW                           ),
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
-) i_streamer_y_z      (
-  .clk_i                    ( clk_i                 ),
-  .rst_ni                   ( rst_ni                ),
-  .test_mode_i              ( test_mode_i           ),
-  // Controller generated signals
-  .enable_i                 ( 1'b1                  ),
-  .clear_i                  ( clear                 ),
-  // Source interfaces for the incoming streams
-  .y_stream_o               ( y_buffer_d            ),
-  // Sink interface for the outgoing stream
-  .z_stream_i               ( z_buffer_q),
-  // Master TCDM interface ports for the memory side
-  .tcdm                     ( tcdm_y_z              ),
-  .ctrl_i                   ( cntrl_streamer        ),
-  .flags_o                  ( flgs_streamer_y_z         )
-);
-
-ope_streamer_x_w #(
-  .DW             ( DW                           ),
-  .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
-) i_streamer_x_w      (
+) i_streamer      (
   .clk_i                    ( clk_i                 ),
   .rst_ni                   ( rst_ni                ),
   .test_mode_i              ( test_mode_i           ),
@@ -215,23 +171,23 @@ ope_streamer_x_w #(
   // Source interfaces for the incoming streams
   .x_stream_o               ( x_buffer_d            ),
   .w_stream_o               ( w_buffer_d            ),
+  .y_stream_o               ( y_buffer_d            ),
+  // Sink interface for the outgoing stream
+  .z_stream_i               ( z_buffer_q),
   // Master TCDM interface ports for the memory side
-  .tcdm                     ( tcdm_x_w              ),
+  .tcdm                     ( tcdm                  ),
   .custom_priority_force_i  ( custom_priority_force ),
   .custom_priority_i        ( custom_priority       ),
   .x_granted_o              ( x_granted             ),
   .w_granted_o              ( w_granted             ),
+  .y_granted_o              ( y_granted             ),
+  .z_granted_o              ( z_granted             ),
 
   .ctrl_i                   ( cntrl_streamer        ),
-  .flags_o                  ( flgs_streamer_x_w        )
+  .flags_o                  ( flgs_streamer         )
 );
 
 
-
-assign flgs_streamer.x_stream_source_flags = flgs_streamer_x_w.x_stream_source_flags;
-assign flgs_streamer.w_stream_source_flags = flgs_streamer_x_w.w_stream_source_flags;
-assign flgs_streamer.y_stream_source_flags = flgs_streamer_y_z.y_stream_source_flags;
-assign flgs_streamer.z_stream_sink_flags = flgs_streamer_y_z.z_stream_sink_flags;
 /*---------------------------------------------------------------*/
 /* |                      INPUT_REGISTERS                      | */
 /*---------------------------------------------------------------*/
@@ -246,17 +202,12 @@ assign start_register_reading_d = not_empty_x_reg && not_empty_w_reg;
 
 logic reg_to_engine_valid;
 logic x_reg_to_engine_valid, w_reg_to_engine_valid;
-logic [DATAW - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
+logic [DATAW/2 - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
+logic [DATAW-1:0] x_buffer_additional_reg_d,x_buffer_additional_reg_q;
+logic x_buffer_additional_reg_ready,x_buffer_additional_reg_valid_d,x_buffer_additional_reg_valid_q;
+
 
 assign reg_to_engine_valid = x_reg_to_engine_valid && w_reg_to_engine_valid;
-
-always_ff @(posedge clk_i or negedge rst_ni) begin
-  if (!rst_ni) begin
-    start_register_reading_q <= 1'b0;
-  end else begin
-    start_register_reading_q <= start_register_reading_d;
-  end
-end
 
 reg_array_io_wrapper #(
   .READING_POLICY   ( ope_pkg::SERIALLY ),
@@ -267,10 +218,10 @@ reg_array_io_wrapper #(
   .rst_ni             ( rst_ni                      ),
   .clear_i            ( clear                       ),
   .iteration_change_i (memory_scheduler_next_iteration),
-  .reading_reg_i      ( start_register_reading_q  ),
+  .ready_i            (in_ready  ),
   .data_i             ( x_buffer_d.data          ),
   .valid_i            ( x_buffer_d.valid         ),
-  .ready_o            ( x_buffer_d.ready         ),
+  .ready_o            ( x_ready                  ),
   .data_o             ( x_reg_to_engine_data),
   .valid_o            (x_reg_to_engine_valid),
   .not_empty_o        ( not_empty_x_reg)
@@ -285,14 +236,28 @@ reg_array_io_wrapper #(
   .rst_ni             ( rst_ni                      ),
   .clear_i            ( clear                       ),
   .iteration_change_i (memory_scheduler_next_iteration),
-  .reading_reg_i      ( start_register_reading_q ), // When both the x and w buffer are not empty
+  .ready_i            ( in_ready                   ), // When both the x and w buffer are not empty
   .data_i             ( w_buffer_d.data          ),
   .valid_i            ( w_buffer_d.valid         ),
-  .ready_o            ( w_buffer_d.ready         ),
+  .ready_o            ( w_ready         ),
   .data_o             (w_reg_to_engine_data                ),
   .valid_o            (w_reg_to_engine_valid),
   .not_empty_o        ( not_empty_w_reg       )     
 );
+assign w_buffer_d.ready = w_ready; //&~ mask_streamer;
+assign x_buffer_d.ready = x_ready; // &~ mask_streamer;
+
+
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      last_iteration_q <= '0;
+    end else begin
+      last_iteration_q <= last_iteration_d;
+    end
+  end
+
+  assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer.y_stream_source_flags.done | last_iteration_q;
 
 /*---------------------------------------------------------------*/
 /* |                          Engine                           | */
@@ -302,7 +267,7 @@ flgs_engine_t  flgs_engine;
 
 // Engine signals
 // Control signal for successive accumulations
-logic                               accumulate, engine_flush;
+logic                               accumulate;
 // fpnew_fma Input Signals
 logic                         [2:0] fma_is_boxed;
 logic                         [1:0] noncomp_is_boxed;
@@ -364,7 +329,7 @@ end
 logic priority_enforcer_enable;
 assign reg_enable = priority_enforcer_enable;
 logic engine_out_valid;
-logic [Width-1:0][BITW-1:0] engine_out_data;
+logic [2*Width-1:0][BITW-1:0] engine_out_data;
 logic accumulation_reg_full_first;
 logic single_iteration;
 // Engine instance
@@ -380,7 +345,7 @@ ope_engine     #(
   .x_input_i          ( x_reg_to_engine_data       ),
   .w_input_i          ( w_reg_to_engine_data       ),
   .y_bias_i           ( y_buffer_d.data),
-  .z_output_o         (engine_out_data),
+  .z_output_o         (z_buffer_q.data),
    
    // From controller
   .fma_is_boxed_i     ( fma_is_boxed     ),
@@ -396,11 +361,10 @@ ope_engine     #(
   .tag_i              ( in_tag           ),
   .aux_i              ( in_aux           ),
   .reg_enable_i       ( reg_enable       ),
-  .flush_i            ( engine_flush            ),
 
   // From reg_io_wrapper
   .in_valid_i         ( reg_to_engine_valid         ),
-  .y_in_valid_i       ( y_buffer_d.valid),
+  .y_in_valid_i       ( y_buffer_d.valid & y_buffer_d.ready),
   .in_ready_o         ( in_ready         ),
 
   // Memory Scheduler
@@ -412,22 +376,20 @@ ope_engine     #(
   .is_class_o         ( is_class         ),
   .tag_o              ( out_tag          ),
   .aux_o              ( out_aux          ),
-  .out_valid_o        (engine_out_valid),
-  .out_ready_i        ( z_buffer_d.ready        ),
-  .accumulation_reg_y_ready_o (y_buffer_d.ready),
-  .accumulation_reg_z_valid_o (z_buffer_d.valid),
+  .out_valid_o        ( z_valid),
+  .out_ready_i        ( z_buffer_q.ready &~ mask_z),
+  .accumulation_reg_y_ready_o (y_ready),
   .accumulation_reg_full_first_o (accumulation_reg_full_first),
-  .last_iteration_i   ( flgs_streamer.y_stream_source_flags.done ),
-  .done_i             ( flgs_streamer.z_stream_sink_flags.done ),
+  .last_iteration_i   ( last_iteration_q ),
+  .start_i             (cntrl_scheduler.start_load_x),
   .busy_o             ( busy             ),
   .cntrl_engine_i     ( cntrl_engine     ) // Only inner loop count is used from this!
 );
-
+assign y_buffer_d.ready = y_ready &~ mask_streamer;
+assign engine_out_valid = z_buffer_d.valid;
 /*---------------------------------------------------------------*/
 /* |                    Memory Controller                      | */
 /*---------------------------------------------------------------*/
-
-
 
 ope_memory_scheduler #(
   .W  (Width),
@@ -455,7 +417,7 @@ assign system_busy = busy || not_empty_x_reg || not_empty_w_reg;
 /* |                        Controller                         | */
 /*---------------------------------------------------------------*/
 
-
+logic start_computing;
 ope_ctrl        #(
   .N_CORES            ( N_CORES                 ),
   .IO_REGS            ( REDMULE_REGS            ),
@@ -475,14 +437,12 @@ ope_ctrl        #(
   .clear_o            ( clear                   ),
   .evt_o              ( evt_o                   ),
   .reg_file_o         ( reg_file                ),
-  .reg_enable_i       ( reg_enable              ),
   .start_cfg_i        ( start_cfg               ),
   .cfg_complete_o     ( cfg_complete            ),
   .w_loaded_i         ( flgs_scheduler.w_loaded ),
   .memory_scheduler_done_i ( memory_scheduler_done   ),
   .memory_scheduler_next_iteration_i ( memory_scheduler_next_iteration ),
-  .accumulation_reg_full_first_i (accumulation_reg_full_first),
-  .flush_o            ( engine_flush            ),
+  .accumulation_reg_full_first_i (start_computing),
   .priority_enforcer_enable_o (priority_enforcer_enable),
   .cntrl_scheduler_o  ( cntrl_scheduler         ),
   .x_regbuffer_ctrl_o ( x_regbuffer_ctrl        ),
@@ -490,47 +450,26 @@ ope_ctrl        #(
   .periph             ( periph                  )
 );
 
-
-
-priority_enforcer #(
-  .CHANGE_DEGREE ( X_REGBUFFER_DEPTH    ),
-  .NSS           ( 2     )
-) i_priority_enforcer (
+priority_enforcer i_priority_enforcer (
   .clk_i                   ( clk_i                    ),
   .rst_ni                  ( rst_ni                   ),
   .enable_i                ( priority_enforcer_enable ),
   .x_granted_i             ( x_granted                ),
   .w_granted_i             ( w_granted                ),
+  .y_granted_i             ( y_granted                ),
+  .z_valid_i               ( z_valid         ),
+  .last_iteration_i        ( last_iteration_q ),
   .custom_priority_force_o ( custom_priority_force    ),
+  .start_computing_o       ( start_computing          ),
+  .mask_streamer_o         ( mask_streamer            ),
+  .mask_z_o                ( mask_z                   ),
   .custom_priority_o       ( custom_priority          )
 );
 
-  // assign debug_cntrl_scheduler_o = cntrl_scheduler;
-
 
   assign z_buffer_d.data = engine_out_data;
-  assign z_buffer_d.strb = {{DATAW_ALIGN/8{1'b1}}};
+  assign z_buffer_q.strb = {{DATAW_ALIGN/8{1'b1}}};
 
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      z_buffer_q.valid <= 1'b0;
-      z_buffer_q.data  <= '0;
-      z_buffer_q.strb  <= '0;
-      z_buffer_d.ready <= 1'b1;
-    end else begin
-      if (memory_scheduler_next_iteration) begin
-        z_buffer_d.ready <= 1'b1;
-        z_buffer_q.valid <= 1'b0;
-        z_buffer_q.data  <= '0;
-        z_buffer_q.strb  <= '0;
-      end else begin 
-        z_buffer_d.ready <= z_buffer_q.ready;
-        z_buffer_q.valid <= z_buffer_d.valid;
-        z_buffer_q.data  <= z_buffer_d.data;
-        z_buffer_q.strb  <= z_buffer_d.strb;
-      end
-    end
-  end
+  assign z_buffer_q.valid = z_valid &~ mask_z;
 
 endmodule : ope_top

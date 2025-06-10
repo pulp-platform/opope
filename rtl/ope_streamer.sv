@@ -35,10 +35,12 @@ module ope_streamer
   // TCDM interface between the streamer and the memory
   hci_core_intf.initiator        tcdm      ,
 
-  input  logic                                                        custom_priority_force_i,  
-  input  logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0]   custom_priority_i,
-  output logic                                                        x_granted_o,
-  output logic                                                        w_granted_o,
+  input  logic                        custom_priority_force_i,  
+  input  logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority_i,
+  output logic                        x_granted_o,
+  output logic                        w_granted_o,
+  output logic                        y_granted_o,
+  output logic                        z_granted_o,
   // Control signals
   input  cntrl_streamer_t        ctrl_i,
   output flgs_streamer_t         flags_o
@@ -228,7 +230,7 @@ hci_core_r_valid_filter #(
 // FIXME: Explain that 
 hci_core_intf #( .DW ( DW ),
                  .UW ( UW ) ) zstream2cast ( .clk ( clk_i ) );
-hci_core_sink_custom         #(
+hci_core_sink         #(
   // .MISALIGNED_ACCESSES ( 1'b0                      ),
     .MISALIGNED_ACCESSES   ( REALIGN                    ),
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(ldst_tcdm) )
@@ -303,7 +305,7 @@ hci_core_assign i_store_assign ( .tcdm_target (z_fifo_q), .tcdm_initiator (yz_tc
  * icoming TCDM bus into three TCDM interfaces (X, W, and Y). Each interface connects to its  *
  * own FIFO, and then to a cas unit that casts the data from one FP format to another. Then,  *
  * the output of the cast connects to a dedicated HCI core source unit used to translate the  *
- * incoming TCDM protocls into stream.                                                        */
+ * incoming TCDM protocls into stream.                        */
 
 // Virtual TCDM interfaces
 // X   -> virt_tcdm[0]
@@ -342,7 +344,7 @@ hci_core_intf #(
 
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW ) ) out_stream [NumStreamSources-1:0] ( .clk( clk_i ) );
 
-hci_streamer_ctrl_custom_t  [NumStreamSources-1:0] source_ctrl;
+hci_package::hci_streamer_ctrl_t  [NumStreamSources-1:0] source_ctrl;
 hci_package::hci_streamer_flags_t [NumStreamSources-1:0] source_flags;
 
 // Assign input control buses to the relative ID in the vector.
@@ -396,7 +398,7 @@ for (genvar i = 0; i < NumStreamSources; i++) begin: gen_tcdm2stream
   assign load_fifo_q[i].ecc      = tcdm_cast[i].ecc;
   assign tcdm_cast[i].r_ecc      = load_fifo_q[i].r_ecc;
 
-  hci_core_source_custom       #(
+  hci_core_source       #(
     .MISALIGNED_ACCESSES   ( REALIGN                    ),
     .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(ldst_tcdm) )
   ) i_stream_source      (
@@ -420,15 +422,17 @@ assign flags_o.y_stream_source_flags = source_flags[YsourceStreamId];
 
 assign x_granted_o = virt_tcdm[XsourceStreamId].gnt;
 assign w_granted_o = virt_tcdm[WsourceStreamId].gnt;
+assign y_granted_o = virt_tcdm[YsourceStreamId].gnt;
+assign z_granted_o = 1'b0;
 
 // Assign resulting streams.
 hwpe_stream_assign i_xstream_assign ( .push_i( out_stream[XsourceStreamId] ) ,
-                                      .pop_o ( x_stream_o                  ) );
+      .pop_o ( x_stream_o                  ) );
 
 hwpe_stream_assign i_wstream_assign ( .push_i( out_stream[WsourceStreamId] ) ,
-                                      .pop_o ( w_stream_o                  ) );
+      .pop_o ( w_stream_o                  ) );
 
 hwpe_stream_assign i_ystream_assign ( .push_i( out_stream[YsourceStreamId] ) ,
-                                      .pop_o ( y_stream_o                  ) );
+      .pop_o ( y_stream_o                  ) );
 
 endmodule : ope_streamer

@@ -28,7 +28,6 @@ module ope_ctrl
   output logic                    clear_o           ,
   output logic [N_CORES-1:0][1:0] evt_o             ,
   output ctrl_regfile_t           reg_file_o        ,
-  input  logic                    reg_enable_i      ,
   input  logic                    start_cfg_i       ,
   input  flgs_streamer_t          flgs_streamer_i   ,
   input logic system_busy_i,
@@ -40,7 +39,6 @@ module ope_ctrl
   input logic               memory_scheduler_next_iteration_i        , 
   input logic               accumulation_reg_full_first_i,
   // Control signals for the engine
-  output logic                    flush_o           ,
   output logic                    priority_enforcer_enable_o,
   // Control signals for the state machine
   output cntrl_scheduler_t        cntrl_scheduler_o ,
@@ -58,6 +56,8 @@ module ope_ctrl
     OPE_LATCH_RST,
     OPE_IDLE,
     OPE_STARTING,
+    OPE_LOAD_X,
+    OPE_LOAD_W,
     OPE_LOAD_Y,
     OPE_COMPUTING, 
     OPE_FINISHED
@@ -153,8 +153,6 @@ module ope_ctrl
   assign tiler_setback                  = current == OPE_IDLE && next == OPE_STARTING;
   assign cntrl_slave.done               = current == OPE_FINISHED;
   assign busy_o                         = current != OPE_LATCH_RST || current != OPE_IDLE || current != OPE_FINISHED;
-  assign flush_o                        = 'b0;
-  // assign flush_o                        = current == OPE_FINISHED;
   assign cntrl_scheduler_o.rst          = current == OPE_FINISHED;
   assign cntrl_scheduler_o.finished     = current == OPE_FINISHED;
   assign latch_clear                    = current == OPE_LATCH_RST;
@@ -167,45 +165,24 @@ module ope_ctrl
   assign cntrl_engine_o.iteration_change = 1'b0;
   
 
-  assign cntrl_scheduler_o.start_load_x  = current == OPE_LOAD_Y && next == OPE_COMPUTING;
-  assign cntrl_scheduler_o.start_load_w  = current == OPE_LOAD_Y && next == OPE_COMPUTING;
-  assign cntrl_scheduler_o.start_store_z = current == OPE_LOAD_Y &&  next == OPE_COMPUTING;
-  assign cntrl_scheduler_o.start_load_y  = current == OPE_STARTING && next == OPE_LOAD_Y;
+  assign cntrl_scheduler_o.start_load_x  = current == OPE_LOAD_W && next == OPE_LOAD_X;
+  assign cntrl_scheduler_o.start_load_w  = current == OPE_STARTING && next == OPE_LOAD_W;
+  assign cntrl_scheduler_o.start_store_z = current == OPE_LOAD_X && next == OPE_LOAD_Y;
+  assign cntrl_scheduler_o.start_load_y  = current == OPE_LOAD_X && next == OPE_LOAD_Y;
   assign priority_enforcer_enable_o = current == OPE_COMPUTING;
 
   always_comb begin : controller_fsm
     next = current;
 
     case (current)
-      OPE_LATCH_RST: begin
-        next = OPE_IDLE;
-      end
-
-      OPE_IDLE: begin
-        if (slave_start & tiler_valid) begin
-          next = OPE_STARTING;
-        end
-      end
-
-      OPE_STARTING: begin
-        next = OPE_LOAD_Y;
-      end
-
-      OPE_LOAD_Y: begin
-        if (accumulation_reg_full_first_i) begin
-          next = OPE_COMPUTING;
-        end
-      end
-
-      OPE_COMPUTING: begin
-        if (memory_scheduler_done_i) begin
-          next = OPE_FINISHED;
-        end
-      end
-      
-      OPE_FINISHED: begin
-        next = OPE_IDLE;
-      end
+      OPE_LATCH_RST: next = OPE_IDLE;
+      OPE_IDLE     : next = (slave_start & tiler_valid) ? OPE_STARTING : current;
+      OPE_STARTING : next = OPE_LOAD_W;
+      OPE_LOAD_W   : next = OPE_LOAD_X;
+      OPE_LOAD_X   : next = OPE_LOAD_Y;
+      OPE_LOAD_Y   : next = accumulation_reg_full_first_i  ? OPE_COMPUTING : current;
+      OPE_COMPUTING: next = memory_scheduler_done_i ? OPE_FINISHED : current;
+      OPE_FINISHED : next = OPE_IDLE;
     endcase
   end
 
