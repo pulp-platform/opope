@@ -19,57 +19,92 @@ module ope_ctrl
   parameter  int unsigned Height        = 4                      ,
   parameter  int unsigned Width         = 8                      ,
   parameter  int unsigned NumPipeRegs   = 3                      ,
-  localparam int unsigned TILE          = (NumPipeRegs +1)*Height
+  localparam int unsigned TILE          = (NumPipeRegs +1)*Height,
+  parameter int unsigned NSS            = NumStreamSources
 )(
   input  logic                    clk_i             ,
   input  logic                    rst_ni            ,
-  input  logic                    test_mode_i       ,
   output logic                    busy_o            ,
   output logic                    clear_o           ,
   output logic [N_CORES-1:0][1:0] evt_o             ,
   output ctrl_regfile_t           reg_file_o        ,
   input  logic                    start_cfg_i       ,
-  input  flgs_streamer_t          flgs_streamer_i   ,
-  input logic system_busy_i,
-  // input  flags_fifo_t             x_fifo_flgs_i     ,
   output logic                    cfg_complete_o    ,
-  // Flags coming from the state machine
-  input  logic                    w_loaded_i        ,
-  input logic               finished_i,
-  input logic               memory_scheduler_next_iteration_i        , 
-  input logic               accumulation_reg_full_first_i,
   // Control signals for the engine
   output logic                    priority_enforcer_enable_o,
   // Control signals for the state machine
   output cntrl_scheduler_t        cntrl_scheduler_o ,
-  output x_regbuffer_ctrl_t       x_regbuffer_ctrl_o,
   output cntrl_engine_t           cntrl_engine_o    ,
+  
+  // Priority enforcer
+  input  logic                 x_granted_i,
+  input  logic                 w_granted_i,
+  input  logic                 y_granted_i,
+  input  logic                 z_valid_i,
+  input  logic                 last_iteration_i,
+  output logic                 custom_priority_force_o,
+  output logic                 mask_streamer_o,
+  output logic                 mask_z_o,
+  output logic [NSS-1:0][$clog2(NSS)-1: 0] custom_priority_o,
 
   // Peripheral slave port
   hwpe_ctrl_intf_periph.slave     periph
 );
-
-  logic        clear, latch_clear;
-  logic        tiler_setback, tiler_valid;
-
+  
+  // Main controller signals
   typedef enum logic [3:0] {
     OPE_LATCH_RST,
     OPE_IDLE,
-    OPE_STARTING,
     OPE_LOAD_X,
     OPE_LOAD_W,
     OPE_LOAD_Y,
     OPE_COMPUTING, 
     OPE_FINISHED
   } ope_ctrl_state_e;
-
   ope_ctrl_state_e current, next;
-
+  
+  logic clear, latch_clear;
+  logic tiler_setback, tiler_valid;
+  logic slave_start;
+  logic change_state;
+  
   hwpe_ctrl_package::ctrl_regfile_t reg_file_d, reg_file_q;
   hwpe_ctrl_package::ctrl_slave_t   cntrl_slave;
   hwpe_ctrl_package::flags_slave_t  flgs_slave;
 
-  // Control slave interface
+  // Stremear controller signals
+  localparam int unsigned LoadCycles = ARRAY_HEIGHT*ARRAY_WIDTH*REG_PER_CE*BITW/DATAW;
+  
+  typedef enum logic [1:0] {
+    PRIORITY_X,
+    PRIORITY_W,
+    PRIORITY_YZ
+  } ope_priority_level_e;
+
+  typedef enum logic [2:0] {
+    STREAMER_Y,
+    STREAMER_XWY,
+    STREAMER_XWM,
+    STREAMER_XWZ,
+    STREAMER_Z
+  } ope_priority_state_e;
+
+  ope_priority_level_e priority_level;
+  ope_priority_state_e streamer_current,streamer_next;
+
+  logic streamer_change_state;
+  logic grant;
+  logic done_d,done_q;
+  logic start_computing,finished;
+
+  logic[$clog2(LoadCycles)-1:0] y_counter_d,y_counter_q;
+  logic[$clog2(LoadCycles)-1:0] extra_d,extra_q;
+  logic[1:0] priority_counter_d,priority_counter_q;
+
+  /*---------------------------------------------------------------------------------------------*/
+  /*                                   Control slave interface                                   */
+  /*---------------------------------------------------------------------------------------------*/
+
   hwpe_ctrl_slave  #(
     .REGFILE_SCM    ( 0            ),
     .N_CORES        ( N_CORES      ),
@@ -98,7 +133,6 @@ module ope_ctrl
     .reg_file_o  ( reg_file_q    )
   );
 
-  assign cfg_complete_o = tiler_valid;
   /*---------------------------------------------------------------------------------------------*/
   /*                                       Register island                                       */
   /*---------------------------------------------------------------------------------------------*/
@@ -108,14 +142,10 @@ module ope_ctrl
     if(~rst_ni) begin
        current <= OPE_LATCH_RST;
     end else begin
-      if (clear)
-        current <= OPE_IDLE;
-      else
-        current <= next;
+      current <= next;
     end
   end
 
-  logic slave_start;
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
       slave_start <= 1'b0;
@@ -130,7 +160,6 @@ module ope_ctrl
   /*---------------------------------------------------------------------------------------------*/
   /*                                   Register file assignment                                  */
   /*---------------------------------------------------------------------------------------------*/
-  assign reg_file_o = reg_file_q;
 
   assign cntrl_engine_o.fma_is_boxed = 3'b111;
   assign cntrl_engine_o.noncomp_is_boxed = 2'b11;
@@ -141,56 +170,206 @@ module ope_ctrl
   assign cntrl_engine_o.op2 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][20:16]);
   assign cntrl_engine_o.memory_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
   assign cntrl_engine_o.inner_loop_count = (reg_file_o.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
-
   assign cntrl_engine_o.computing_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
-  /*---------------------------------------------------------------------------------------------*/
-  /*                                        Controller FSM                                       */
-  /*---------------------------------------------------------------------------------------------*/
-
-
-
-
-  assign tiler_setback                  = current == OPE_IDLE && next == OPE_LOAD_W;
-  assign cntrl_slave.done               = current == OPE_FINISHED;
-  assign busy_o                         = current != OPE_LATCH_RST || current != OPE_IDLE || current != OPE_FINISHED;
-  assign cntrl_scheduler_o.rst          = current == OPE_FINISHED;
-  assign cntrl_scheduler_o.finished     = current == OPE_FINISHED;
-  assign latch_clear                    = current == OPE_LATCH_RST;
-
-  logic [$clog2(Height) - 1: 0] y_row_index_q, y_row_index_d;
   // FIXME: because the store waits for the address gen to finish, the data that are read are 2 cycles more (power consumption)
   // Maybe find a better way to do this
   assign cntrl_engine_o.mode =  cntrl_engine_mode_e'(IDLE);
-
   assign cntrl_engine_o.iteration_change = 1'b0;
   
-
-  // assign cntrl_scheduler_o.start_load_w  = current == OPE_STARTING && next == OPE_LOAD_W;
-  assign cntrl_scheduler_o.start_load_w  = current == OPE_IDLE && next == OPE_LOAD_W;
-  assign cntrl_scheduler_o.start_load_x  = current == OPE_LOAD_W && next == OPE_LOAD_X;
-  assign cntrl_scheduler_o.start_store_z = current == OPE_LOAD_X && next == OPE_LOAD_Y;
-  assign cntrl_scheduler_o.start_load_y  = current == OPE_LOAD_X && next == OPE_LOAD_Y;
-  assign priority_enforcer_enable_o = current == OPE_COMPUTING;
-
+  /*---------------------------------------------------------------------------------------------*/
+  /*                                        Controller FSM                                       */
+  /*---------------------------------------------------------------------------------------------*/
+  
   always_comb begin : controller_fsm
     next = current;
 
     case (current)
       OPE_LATCH_RST: next = OPE_IDLE;
-      OPE_IDLE     : next = (slave_start & tiler_valid) ? OPE_LOAD_W : current;
-      // OPE_STARTING : next = OPE_LOAD_W;
+      OPE_IDLE     : next = change_state  ? OPE_LOAD_W    : current;
       OPE_LOAD_W   : next = OPE_LOAD_X;
       OPE_LOAD_X   : next = OPE_LOAD_Y;
-      OPE_LOAD_Y   : next = accumulation_reg_full_first_i  ? OPE_COMPUTING : current;
-      OPE_COMPUTING: next = finished_i                     ? OPE_FINISHED : current;
+      OPE_LOAD_Y   : next = change_state  ? OPE_COMPUTING : current;
+      OPE_COMPUTING: next = change_state  ? OPE_FINISHED  : current;
       OPE_FINISHED : next = OPE_IDLE;
+    endcase
+    
+    if (clear)       next = OPE_IDLE;
+  end
+
+  always_comb begin : controller_values
+    change_state                    = 1'b0;
+    tiler_setback                   = 1'b0;
+    latch_clear                     = 1'b0;
+    cntrl_slave.done                = 1'b0;
+    busy_o                          = 1'b1;
+    priority_enforcer_enable_o      = 1'b0;
+    cntrl_scheduler_o.rst           = 1'b0;
+    cntrl_scheduler_o.finished      = 1'b0;
+    cntrl_scheduler_o.start_load_w  = 1'b0;
+    cntrl_scheduler_o.start_load_x  = 1'b0;
+    cntrl_scheduler_o.start_store_z = 1'b0;
+    cntrl_scheduler_o.start_load_y  = 1'b0;
+    case (current)
+      OPE_LATCH_RST: begin
+        latch_clear = 1'b1;
+        busy_o      = 1'b0;
+      end
+      OPE_IDLE     : begin
+        change_state                   = slave_start & tiler_valid;
+        tiler_setback                  = change_state;
+        cntrl_scheduler_o.start_load_w = change_state;
+        busy_o      = 1'b0;
+      end
+      OPE_LOAD_W   : begin
+        cntrl_scheduler_o.start_load_x  = 1'b1;
+      end
+      OPE_LOAD_X   : begin
+        cntrl_scheduler_o.start_store_z = 1'b1;
+        cntrl_scheduler_o.start_load_y  = 1'b1;
+      end
+      OPE_LOAD_Y   : begin
+        change_state = start_computing;
+      end
+      OPE_COMPUTING: begin
+        change_state                = finished;
+        priority_enforcer_enable_o  = 1'b1;
+      end
+      OPE_FINISHED : begin
+        cntrl_slave.done           = 1'b1;
+        cntrl_scheduler_o.rst      = 1'b1;
+        cntrl_scheduler_o.finished = 1'b1;
+        busy_o                     = 1'b0;
+      end
     endcase
   end
 
   /*---------------------------------------------------------------------------------------------*/
+  /*                                         Streamer FSM                                        */
+  /*---------------------------------------------------------------------------------------------*/
+  assign grant = x_granted_i | w_granted_i | y_granted_i;
+
+  always_comb begin : streamer_fsm
+    case (streamer_current)
+    // -----------------------------------------------------------------------------------------------------------
+      STREAMER_Y  : streamer_next = streamer_change_state                     ? STREAMER_XWY : streamer_current;
+    // -----------------------------------------------------------------------------------------------------------
+      STREAMER_XWY: streamer_next = streamer_change_state                     ? STREAMER_XWM : streamer_current;
+    // -----------------------------------------------------------------------------------------------------------
+      STREAMER_XWZ: streamer_next = streamer_change_state && last_iteration_i ? STREAMER_XWM :
+                                    streamer_change_state                     ? STREAMER_XWY : streamer_current;
+    // -----------------------------------------------------------------------------------------------------------
+      STREAMER_Z  : streamer_next = streamer_change_state                     ? STREAMER_Y   : streamer_current;
+    // -----------------------------------------------------------------------------------------------------------
+      STREAMER_XWM: streamer_next = streamer_change_state && done_q           ? STREAMER_Z   : 
+                                    streamer_change_state                     ? STREAMER_XWZ : streamer_current;
+    // -----------------------------------------------------------------------------------------------------------
+      default     : streamer_next = STREAMER_Y;
+    // -----------------------------------------------------------------------------------------------------------
+    endcase
+  end
+  
+  always_comb begin : streamer_values
+    y_counter_d        = y_counter_q       ;
+    priority_counter_d = priority_counter_q;
+    mask_streamer_o    = 1'b0;
+    mask_z_o           = 1'b1;
+    extra_d            = extra_q;
+    done_d             = done_q ;
+    finished           = 1'b0;
+    start_computing    = 1'b0;
+    
+    case (streamer_current)
+      STREAMER_Y  : begin
+       y_counter_d           = y_counter_q + y_granted_i;
+       streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
+       priority_counter_d    = 2'b11 + streamer_change_state;
+       start_computing       = streamer_change_state;
+      end
+      STREAMER_XWY: begin
+        extra_d               = 1'b0;
+        y_counter_d           = y_counter_q + y_granted_i;
+        streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
+        priority_counter_d    = priority_counter_q + grant;
+      end
+      STREAMER_XWM: begin
+        extra_d               = extra_q + y_granted_i;
+        priority_counter_d    = priority_counter_q + (grant | priority_counter_q[1]);
+        mask_streamer_o       = priority_counter_q[1];
+        streamer_change_state = (priority_counter_d == '0) & z_valid_i;
+        mask_z_o              = ~(streamer_change_state & done_q);
+      end
+      STREAMER_XWZ: begin
+        streamer_change_state = (y_counter_q == LoadCycles-1) & y_granted_i;
+        y_counter_d           = streamer_change_state ? extra_q : y_counter_q + y_granted_i;
+        priority_counter_d    = priority_counter_q + grant;
+        // mask_z_o              = ^priority_counter_q;
+        mask_streamer_o       = 1'b1;
+        mask_z_o              = priority_counter_q[1];
+        done_d                = last_iteration_i;
+      end 
+      STREAMER_Z  : begin
+        y_counter_d           = y_counter_q + y_granted_i;
+        streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
+        priority_counter_d    = 2'b11 + streamer_change_state;
+        mask_z_o              = 1'b0;
+        done_d                = 1'b0;
+        finished              = streamer_change_state;
+      end 
+    endcase    
+  end
+
+  always_comb begin : priority_values
+    case (priority_counter_q)
+      2'b00  : priority_level = PRIORITY_X ;
+      2'b01  : priority_level = PRIORITY_W ;
+      2'b10  : priority_level = PRIORITY_YZ;
+      default: priority_level = PRIORITY_YZ;
+    endcase
+
+    case (priority_level)
+      PRIORITY_X   : begin
+        custom_priority_o[0] = XsourceStreamId;
+        custom_priority_o[1] = WsourceStreamId;
+        custom_priority_o[2] = YsourceStreamId;
+      end
+      PRIORITY_W   : begin
+        custom_priority_o[0] = WsourceStreamId;
+        custom_priority_o[1] = YsourceStreamId;
+        custom_priority_o[2] = XsourceStreamId;
+      end
+      PRIORITY_YZ  :begin
+        custom_priority_o[0] = YsourceStreamId;
+        custom_priority_o[1] = XsourceStreamId;
+        custom_priority_o[2] = WsourceStreamId;
+      end
+    endcase
+  end
+  
+  always_ff @(posedge clk_i, negedge rst_ni) begin
+    if (~rst_ni) begin
+      y_counter_q        <= '0;
+      priority_counter_q <= '0;
+      streamer_current   <= STREAMER_Y;
+      extra_q            <= '0;
+      done_q             <= '0;
+    end else begin
+      y_counter_q        <= y_counter_d       ;
+      priority_counter_q <= priority_counter_d;
+      streamer_current   <= streamer_next     ;
+      extra_q            <= extra_d           ;
+      done_q             <= done_d            ;
+    end
+  end  
+
+
+  /*---------------------------------------------------------------------------------------------*/
   /*                            Other combinational assigmnets                                   */
   /*---------------------------------------------------------------------------------------------*/
-  assign evt_o   = flgs_slave.evt[N_CORES-1:0];
-  assign clear_o = clear || latch_clear;
+  assign evt_o          = flgs_slave.evt[N_CORES-1:0];
+  assign clear_o        = clear || latch_clear;
+  assign cfg_complete_o = tiler_valid;
+  assign reg_file_o     = reg_file_q;
+
+  assign custom_priority_force_o = 1'b1;
 
 endmodule : ope_ctrl

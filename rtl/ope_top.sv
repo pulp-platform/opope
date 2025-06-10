@@ -417,8 +417,6 @@ assign system_busy = busy || not_empty_x_reg || not_empty_w_reg;
 /* |                        Controller                         | */
 /*---------------------------------------------------------------*/
 
-logic start_computing;
-logic finished;
 ope_ctrl        #(
   .N_CORES            ( N_CORES                 ),
   .IO_REGS            ( REDMULE_REGS            ),
@@ -431,47 +429,30 @@ ope_ctrl        #(
 ) i_control           (
   .clk_i              ( clk_i                   ),
   .rst_ni             ( rst_ni                  ),
-  .test_mode_i        ( test_mode_i             ),
-  .flgs_streamer_i    ( flgs_streamer           ),
-  .system_busy_i      ( system_busy             ),
   .busy_o             ( busy_o                  ),
   .clear_o            ( clear                   ),
   .evt_o              ( evt_o                   ),
   .reg_file_o         ( reg_file                ),
   .start_cfg_i        ( start_cfg               ),
   .cfg_complete_o     ( cfg_complete            ),
-  .w_loaded_i         ( flgs_scheduler.w_loaded ),
-  .finished_i         ( finished   ),
-  .memory_scheduler_next_iteration_i ( memory_scheduler_next_iteration ),
-  .accumulation_reg_full_first_i (start_computing),
   .priority_enforcer_enable_o (priority_enforcer_enable),
   .cntrl_scheduler_o  ( cntrl_scheduler         ),
-  .x_regbuffer_ctrl_o ( x_regbuffer_ctrl        ),
   .cntrl_engine_o     ( cntrl_engine            ),
-  .periph             ( periph                  )
-);
-
-priority_enforcer i_priority_enforcer (
-  .clk_i                   ( clk_i                    ),
-  .rst_ni                  ( rst_ni                   ),
-  .enable_i                ( priority_enforcer_enable ),
   .x_granted_i             ( x_granted                ),
   .w_granted_i             ( w_granted                ),
   .y_granted_i             ( y_granted                ),
   .z_valid_i               ( z_valid         ),
   .last_iteration_i        ( last_iteration_q ),
   .custom_priority_force_o ( custom_priority_force    ),
-  .start_computing_o       ( start_computing          ),
   .mask_streamer_o         ( mask_streamer            ),
   .mask_z_o                ( mask_z                   ),
-  .finished_o              ( finished                 ),
-  .custom_priority_o       ( custom_priority          )
-);
+  .custom_priority_o       ( custom_priority          ),
 
+  .periph             ( periph                  )
+);
 
   assign z_buffer_d.data = engine_out_data;
   assign z_buffer_q.strb = {{DATAW_ALIGN/8{1'b1}}};
-
   assign z_buffer_q.valid = z_valid &~ mask_z;
 
 endmodule : ope_top

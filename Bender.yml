@@ -27,7 +27,6 @@ sources:
   # OPE
     - rtl/ope_pkg.sv
     - rtl/accumulation_reg.sv
-    - rtl/priority_enforcer.sv
     - rtl/reg_array_io_wrapper.sv
     - rtl/ope_engine.sv
     - rtl/ope_ce.sv
