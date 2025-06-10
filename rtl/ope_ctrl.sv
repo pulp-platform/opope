@@ -20,6 +20,8 @@ module ope_ctrl
   parameter  int unsigned Width         = 8                      ,
   parameter  int unsigned NumPipeRegs   = 3                      ,
   localparam int unsigned TILE          = (NumPipeRegs +1)*Height,
+  parameter int unsigned   W    = ARRAY_WIDTH,
+  parameter int unsigned   H    = ARRAY_HEIGHT,
   parameter int unsigned NSS            = NumStreamSources
 )(
   input  logic                    clk_i             ,
@@ -27,7 +29,6 @@ module ope_ctrl
   output logic                    busy_o            ,
   output logic                    clear_o           ,
   output logic [N_CORES-1:0][1:0] evt_o             ,
-  output ctrl_regfile_t           reg_file_o        ,
   input  logic                    start_cfg_i       ,
   output logic                    cfg_complete_o    ,
   // Control signals for the engine
@@ -46,6 +47,10 @@ module ope_ctrl
   output logic                 mask_streamer_o,
   output logic                 mask_z_o,
   output logic [NSS-1:0][$clog2(NSS)-1: 0] custom_priority_o,
+  
+  // Memory Scheduler
+  input  flgs_streamer_t        flgs_streamer_i  ,
+  output cntrl_streamer_t       cntrl_streamer_o,
 
   // Peripheral slave port
   hwpe_ctrl_intf_periph.slave     periph
@@ -100,6 +105,10 @@ module ope_ctrl
   logic[$clog2(LoadCycles)-1:0] y_counter_d,y_counter_q;
   logic[$clog2(LoadCycles)-1:0] extra_d,extra_q;
   logic[1:0] priority_counter_d,priority_counter_q;
+  
+  // Memory scheduler
+  logic [31:0] total_len_x_w;
+  logic [31:0] total_len_y_z;
 
   /*---------------------------------------------------------------------------------------------*/
   /*                                   Control slave interface                                   */
@@ -169,7 +178,7 @@ module ope_ctrl
   assign cntrl_engine_o.op1 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][25:21]);
   assign cntrl_engine_o.op2 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][20:16]);
   assign cntrl_engine_o.memory_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
-  assign cntrl_engine_o.inner_loop_count = (reg_file_o.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
+  assign cntrl_engine_o.inner_loop_count = (reg_file_q.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
   assign cntrl_engine_o.computing_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
   // FIXME: because the store waits for the address gen to finish, the data that are read are 2 cycles more (power consumption)
   // Maybe find a better way to do this
@@ -361,6 +370,79 @@ module ope_ctrl
     end
   end  
 
+  /*---------------------------------------------------------------------------------------------*/
+  /*                                       Memory Scheduler                                      */
+  /*---------------------------------------------------------------------------------------------*/
+
+  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] * X_REGBUFFER_DEPTH  / (W*W_REGBUFFER_DEPTH * H*X_REGBUFFER_DEPTH) / 2;
+  assign total_len_y_z = W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH * H * reg_file_q.hwpe_params[K_M] / (W*W_REGBUFFER_DEPTH*H*X_REGBUFFER_DEPTH) / 2;
+
+  always_comb begin : address_gen_signals
+    // Here we initialize the streamer source signals
+    // for the X stream source
+    // X: M*N | W: N*K | Y: M*K | Z: M*K -> X is transposed
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.base_addr     = reg_file_q.hwpe_params[X_ADDR];
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[M_SIZE] * (BITW/8);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_stride     = 'b0;
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_stride     = H * X_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
+
+    // Here we initialize the streamer source signals
+    // for the W stream source
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.base_addr     = reg_file_q.hwpe_params[W_ADDR];
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_stride     = W * W_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_stride     = 'b0;
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
+
+    // Here we initialize the streamer source signals
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.base_addr     = reg_file_q.hwpe_params[Z_ADDR];
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_y_z;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_len        = 2 * H;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_stride     = (BITW/8) * H * W_REGBUFFER_DEPTH;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_stride     = reg_file_q.hwpe_params[K_SIZE] * H*X_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
+
+    // Here we initialize the streamer sink signals for
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.base_addr       = reg_file_q.hwpe_params[Z_ADDR];
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.tot_len         = total_len_y_z;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_len          = 2 * H;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_stride       = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_len          = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_stride       = (BITW/8) * H * W_REGBUFFER_DEPTH;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_len          = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_stride       = reg_file_q.hwpe_params[K_SIZE] * H*X_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d3_stride       = 'b0;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.dim_enable_1h   = 3'b111;
+  end
+
+  always_comb begin : req_start_assignment
+    cntrl_streamer_o.x_stream_source_ctrl.req_start    = cntrl_scheduler_o.start_load_x  && flgs_streamer_i.x_stream_source_flags.ready_start;
+    cntrl_streamer_o.w_stream_source_ctrl.req_start    = cntrl_scheduler_o.start_load_w  && flgs_streamer_i.w_stream_source_flags.ready_start;
+    cntrl_streamer_o.y_stream_source_ctrl.req_start    = cntrl_scheduler_o.start_load_y  && flgs_streamer_i.y_stream_source_flags.ready_start;
+    cntrl_streamer_o.z_stream_sink_ctrl.req_start      = cntrl_scheduler_o.start_store_z && flgs_streamer_i.z_stream_sink_flags.ready_start  ;
+  end
+
+  // NOTE: these are used for the casting, don't care for now
+  assign cntrl_streamer_o.input_cast_src_fmt  = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
+  assign cntrl_streamer_o.input_cast_dst_fmt  = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
+  assign cntrl_streamer_o.output_cast_src_fmt = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
+  assign cntrl_streamer_o.output_cast_dst_fmt = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
+
 
   /*---------------------------------------------------------------------------------------------*/
   /*                            Other combinational assigmnets                                   */
@@ -368,7 +450,6 @@ module ope_ctrl
   assign evt_o          = flgs_slave.evt[N_CORES-1:0];
   assign clear_o        = clear || latch_clear;
   assign cfg_complete_o = tiler_valid;
-  assign reg_file_o     = reg_file_q;
 
   assign custom_priority_force_o = 1'b1;
 

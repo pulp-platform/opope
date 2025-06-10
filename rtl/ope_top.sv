@@ -122,9 +122,6 @@ flags_fifo_t   w_fifo_flgs;
 x_regbuffer_ctrl_t x_regbuffer_ctrl;
 
 
-logic memory_scheduler_done;
-logic memory_scheduler_next_iteration;
-
 logic mask_streamer, mask_z;
 logic x_ready,w_ready,y_ready,z_valid;
 logic last_iteration_d,last_iteration_q;
@@ -217,7 +214,7 @@ reg_array_io_wrapper #(
   .clk_i              ( clk_i                       ),
   .rst_ni             ( rst_ni                      ),
   .clear_i            ( clear                       ),
-  .iteration_change_i (memory_scheduler_next_iteration),
+  .iteration_change_i (1'b0),
   .ready_i            (in_ready  ),
   .data_i             ( x_buffer_d.data          ),
   .valid_i            ( x_buffer_d.valid         ),
@@ -235,7 +232,7 @@ reg_array_io_wrapper #(
   .clk_i              ( clk_i                       ),
   .rst_ni             ( rst_ni                      ),
   .clear_i            ( clear                       ),
-  .iteration_change_i (memory_scheduler_next_iteration),
+  .iteration_change_i (1'b0),
   .ready_i            ( in_ready                   ), // When both the x and w buffer are not empty
   .data_i             ( w_buffer_d.data          ),
   .valid_i            ( w_buffer_d.valid         ),
@@ -331,7 +328,6 @@ assign reg_enable = priority_enforcer_enable;
 logic engine_out_valid;
 logic [2*Width-1:0][BITW-1:0] engine_out_data;
 logic accumulation_reg_full_first;
-logic single_iteration;
 // Engine instance
 ope_engine     #(
   .FpFormat        ( FpFormat),
@@ -368,8 +364,8 @@ ope_engine     #(
   .in_ready_o         ( in_ready         ),
 
   // Memory Scheduler
-  .iteration_change_i (memory_scheduler_next_iteration),
-  .single_iteration_i ( single_iteration   ),
+  .iteration_change_i (1'b0),
+  .single_iteration_i ( 1'b0   ),
   .status_o           ( status           ),
   .extension_bit_o    ( extension_bit    ),
   .class_mask_o       ( class_mask       ),
@@ -387,30 +383,7 @@ ope_engine     #(
 );
 assign y_buffer_d.ready = y_ready &~ mask_streamer;
 assign engine_out_valid = z_buffer_d.valid;
-/*---------------------------------------------------------------*/
-/* |                    Memory Controller                      | */
-/*---------------------------------------------------------------*/
-
-ope_memory_scheduler #(
-  .W  (Width),
-  .H  (Height)
-) i_memory_scheduler (
-  .clk_i             ( clk_i               ),
-  .rst_ni            ( rst_ni              ),
-  .clear_i           ( clear               ),
-  .reg_file_i        ( reg_file            ),
-  .flgs_streamer_i   ( flgs_streamer       ),
-  .cntrl_scheduler_i ( cntrl_scheduler     ),
-  .done_o            ( memory_scheduler_done ),
-  .next_iteration_o   ( memory_scheduler_next_iteration ),
-  .single_iteration_o ( single_iteration   ),
-  .cntrl_streamer_o  ( cntrl_streamer      )
-);
-
-
-
 logic system_busy; 
-
 assign system_busy = busy || not_empty_x_reg || not_empty_w_reg;
 
 /*---------------------------------------------------------------*/
@@ -425,6 +398,8 @@ ope_ctrl        #(
   .SysDataWidth       ( SysDataWidth            ),
   .Height             ( Height                  ),
   .Width              ( Width                   ),
+  .W  (Width),
+  .H  (Height),
   .NumPipeRegs        ( NumPipeRegs             )
 ) i_control           (
   .clk_i              ( clk_i                   ),
@@ -432,7 +407,6 @@ ope_ctrl        #(
   .busy_o             ( busy_o                  ),
   .clear_o            ( clear                   ),
   .evt_o              ( evt_o                   ),
-  .reg_file_o         ( reg_file                ),
   .start_cfg_i        ( start_cfg               ),
   .cfg_complete_o     ( cfg_complete            ),
   .priority_enforcer_enable_o (priority_enforcer_enable),
@@ -447,6 +421,8 @@ ope_ctrl        #(
   .mask_streamer_o         ( mask_streamer            ),
   .mask_z_o                ( mask_z                   ),
   .custom_priority_o       ( custom_priority          ),
+  .flgs_streamer_i   ( flgs_streamer       ),
+  .cntrl_streamer_o  ( cntrl_streamer      ),
 
   .periph             ( periph                  )
 );

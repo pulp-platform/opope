@@ -32,7 +32,6 @@ sources:
     - rtl/ope_ce.sv
     - rtl/ope_ctrl.sv
     - rtl/ope_fma.sv
-    - rtl/ope_memory_scheduler.sv
     - rtl/ope_sdotp_wrapper.sv
     - rtl/ope_sdotp.sv
     - rtl/ope_streamer.sv
