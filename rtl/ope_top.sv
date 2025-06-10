@@ -418,6 +418,7 @@ assign system_busy = busy || not_empty_x_reg || not_empty_w_reg;
 /*---------------------------------------------------------------*/
 
 logic start_computing;
+logic finished;
 ope_ctrl        #(
   .N_CORES            ( N_CORES                 ),
   .IO_REGS            ( REDMULE_REGS            ),
@@ -440,7 +441,7 @@ ope_ctrl        #(
   .start_cfg_i        ( start_cfg               ),
   .cfg_complete_o     ( cfg_complete            ),
   .w_loaded_i         ( flgs_scheduler.w_loaded ),
-  .memory_scheduler_done_i ( memory_scheduler_done   ),
+  .finished_i         ( finished   ),
   .memory_scheduler_next_iteration_i ( memory_scheduler_next_iteration ),
   .accumulation_reg_full_first_i (start_computing),
   .priority_enforcer_enable_o (priority_enforcer_enable),
@@ -463,6 +464,7 @@ priority_enforcer i_priority_enforcer (
   .start_computing_o       ( start_computing          ),
   .mask_streamer_o         ( mask_streamer            ),
   .mask_z_o                ( mask_z                   ),
+  .finished_o              ( finished                 ),
   .custom_priority_o       ( custom_priority          )
 );
 

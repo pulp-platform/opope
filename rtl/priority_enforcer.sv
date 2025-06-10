@@ -21,6 +21,7 @@ module priority_enforcer
   output logic                 start_computing_o,
   output logic                 mask_streamer_o,
   output logic                 mask_z_o,
+  output logic                 finished_o,
   output logic [NSS-1:0][$clog2(NSS)-1: 0] custom_priority_o
 );
 
@@ -89,6 +90,7 @@ module priority_enforcer
     mask_z_o           = 1'b1;
     extra_d            = extra_q;
     done_d             = done_q ;
+    finished_o         = 1'b0;
     
     case (current)
       STREAMER_Y  : begin
@@ -107,6 +109,7 @@ module priority_enforcer
         priority_counter_d = priority_counter_q + (grant | priority_counter_q[1]);
         mask_streamer_o    = priority_counter_q[1];
         change_state       = (priority_counter_d == '0) & z_valid_i;
+        mask_z_o           = ~(change_state & done_q);
       end
       STREAMER_XWZ: begin
         change_state       = (y_counter_q == LoadCycles-1) & y_granted_i;
@@ -123,6 +126,7 @@ module priority_enforcer
         priority_counter_d = 2'b11 + change_state;
         mask_z_o           = 1'b0;
         done_d             = 1'b0;
+        finished_o         = change_state;
       end 
     endcase    
   end

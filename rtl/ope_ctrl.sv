@@ -35,7 +35,7 @@ module ope_ctrl
   output logic                    cfg_complete_o    ,
   // Flags coming from the state machine
   input  logic                    w_loaded_i        ,
-  input logic               memory_scheduler_done_i,
+  input logic               finished_i,
   input logic               memory_scheduler_next_iteration_i        , 
   input logic               accumulation_reg_full_first_i,
   // Control signals for the engine
@@ -150,7 +150,7 @@ module ope_ctrl
 
 
 
-  assign tiler_setback                  = current == OPE_IDLE && next == OPE_STARTING;
+  assign tiler_setback                  = current == OPE_IDLE && next == OPE_LOAD_W;
   assign cntrl_slave.done               = current == OPE_FINISHED;
   assign busy_o                         = current != OPE_LATCH_RST || current != OPE_IDLE || current != OPE_FINISHED;
   assign cntrl_scheduler_o.rst          = current == OPE_FINISHED;
@@ -165,8 +165,9 @@ module ope_ctrl
   assign cntrl_engine_o.iteration_change = 1'b0;
   
 
+  // assign cntrl_scheduler_o.start_load_w  = current == OPE_STARTING && next == OPE_LOAD_W;
+  assign cntrl_scheduler_o.start_load_w  = current == OPE_IDLE && next == OPE_LOAD_W;
   assign cntrl_scheduler_o.start_load_x  = current == OPE_LOAD_W && next == OPE_LOAD_X;
-  assign cntrl_scheduler_o.start_load_w  = current == OPE_STARTING && next == OPE_LOAD_W;
   assign cntrl_scheduler_o.start_store_z = current == OPE_LOAD_X && next == OPE_LOAD_Y;
   assign cntrl_scheduler_o.start_load_y  = current == OPE_LOAD_X && next == OPE_LOAD_Y;
   assign priority_enforcer_enable_o = current == OPE_COMPUTING;
@@ -176,12 +177,12 @@ module ope_ctrl
 
     case (current)
       OPE_LATCH_RST: next = OPE_IDLE;
-      OPE_IDLE     : next = (slave_start & tiler_valid) ? OPE_STARTING : current;
-      OPE_STARTING : next = OPE_LOAD_W;
+      OPE_IDLE     : next = (slave_start & tiler_valid) ? OPE_LOAD_W : current;
+      // OPE_STARTING : next = OPE_LOAD_W;
       OPE_LOAD_W   : next = OPE_LOAD_X;
       OPE_LOAD_X   : next = OPE_LOAD_Y;
       OPE_LOAD_Y   : next = accumulation_reg_full_first_i  ? OPE_COMPUTING : current;
-      OPE_COMPUTING: next = memory_scheduler_done_i ? OPE_FINISHED : current;
+      OPE_COMPUTING: next = finished_i                     ? OPE_FINISHED : current;
       OPE_FINISHED : next = OPE_IDLE;
     endcase
   end
