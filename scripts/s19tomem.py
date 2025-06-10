@@ -17,41 +17,32 @@ INSTR_END  = MEM_START + INSTR_SIZE
 DATA_BASE  = MEM_START + 0x10000
 DATA_SIZE  = 0xb0000
 DATA_END   = DATA_BASE + DATA_SIZE
-THRESHOLD  = 0x1c080000
 
 INSTR_MEM_SIZE = 32*1024
-DATA_MEM_SIZE_X_W  = 458752
-DATA_MEM_SIZE_Y_Z  = 131072
+DATA_MEM_SIZE  = 512*1024 
 
 with open(sys.argv[1], "r") as f:
     s = f.read()
 
-if len(sys.argv) >= 5:
+if len(sys.argv) >= 4:
     instr_txt = sys.argv[2]
-    data_txt_x_w  = sys.argv[3]
-    data_txt_y_z  = sys.argv[4]
+    data_txt  = sys.argv[3]
 else:
     instr_txt = "stim_instr.txt"
-    data_txt_x_w  = "stim_data_x_w.txt"
-    data_txt_y_z  = "stim_data_y_z.txt"
+    data_txt  = "stim_data.txt"
 
 instr_mem = np.zeros(INSTR_MEM_SIZE, dtype='int')
-data_mem_x_w  = np.zeros(DATA_MEM_SIZE_X_W,  dtype='int')
-data_mem_y_z  = np.zeros(DATA_MEM_SIZE_Y_Z,  dtype='int')
+data_mem  = np.zeros(DATA_MEM_SIZE,  dtype='int')
 
 for l in s.split():
     addr = int(l[0:8], 16)
     wh = int(l[9:17], 16)
     wl = int(l[17:25], 16)
-    rel_data_addr   = addr - DATA_BASE
-    rel_data_addr_2 = addr - THRESHOLD
-    rel_imem_addr   = addr - MEM_START
-    if addr >= THRESHOLD and addr < DATA_END:
-        data_mem_y_z[int(rel_data_addr_2 / 4)]     = wl
-        data_mem_y_z[int(rel_data_addr_2 / 4) + 1] = wh
-    if addr >= DATA_BASE and addr < THRESHOLD:
-        data_mem_x_w[int(rel_data_addr / 4)]     = wl
-        data_mem_x_w[int(rel_data_addr / 4) + 1] = wh
+    rel_data_addr = addr - DATA_BASE
+    rel_imem_addr = addr - MEM_START
+    if addr >= DATA_BASE and addr < DATA_END:
+        data_mem [int(rel_data_addr / 4)]     = wl
+        data_mem [int(rel_data_addr / 4) + 1] = wh
     elif addr >= MEM_START and  addr < INSTR_END:
         instr_mem[int(rel_imem_addr / 4)]     = wl
         instr_mem[int(rel_imem_addr / 4) + 1] = wh
@@ -63,14 +54,8 @@ with open(instr_txt, "w") as f:
     f.write(s)
 
 s = ""
-for m in data_mem_x_w:
+for m in data_mem:
     s += "%08x\n" % m
-with open(data_txt_x_w, "w") as f:
-    f.write(s.rstrip('\n'))
-
-s = ""
-for m in data_mem_y_z:
-    s += "%08x\n" % m
-with open(data_txt_y_z, "w") as f:
+with open(data_txt, "w") as f:
     f.write(s.rstrip('\n'))
 

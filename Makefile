@@ -84,14 +84,13 @@ OBJ=$(BUILD_DIR)/verif.o
 BIN=$(BUILD_DIR)/verif
 DUMP=$(BUILD_DIR)/verif.dump
 STIM_INSTR=$(BUILD_DIR)/stim_instr.txt
-STIM_DATA_X_W=$(BUILD_DIR)/stim_data_x_w.txt
-STIM_DATA_Y_Z=$(BUILD_DIR)/stim_data_y_z.txt
+STIM_DATA=$(BUILD_DIR)/stim_data.txt
 
 # Build implicit rules
-$(STIM_INSTR) $(STIM_DATA_X_W) $(STIM_DATA_Y_Z): $(BIN)
+$(STIM_INSTR) $(STIM_DATA): $(BIN)
 	objcopy --srec-len 1 --output-target=srec $(BIN) $(BIN).s19
 	$(PYTHON) scripts/parse_s19.py < $(BIN).s19 > $(BIN).txt
-	$(PYTHON) scripts/s19tomem.py $(BIN).txt $(STIM_INSTR) $(STIM_DATA_X_W) $(STIM_DATA_Y_Z)
+	$(PYTHON) scripts/s19tomem.py $(BIN).txt $(STIM_INSTR) $(STIM_DATA)
 
 $(BIN): $(CRT) $(OBJ)
 	$(LD) $(LD_OPTS) -o $(BIN) $(CRT) $(OBJ) -T$(LINKSCRIPT)
