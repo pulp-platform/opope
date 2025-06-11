@@ -21,9 +21,12 @@ module ope_streamer
 )(
   input logic                    clk_i,
   input logic                    rst_ni,
+  // Control signals
   input logic                    test_mode_i,
   input logic                    enable_i,
   input logic                    clear_i,
+  input  cntrl_streamer_t        ctrl_i,
+  output flgs_streamer_t         flags_o,
   // Engine X input + HS signals (output for the streamer)
   hwpe_stream_intf_stream.source x_stream_o,
   // Engine W input + HS signals (output for the streamer)
@@ -33,17 +36,7 @@ module ope_streamer
   // Engine Z output + HS signals (intput for the streamer)
   hwpe_stream_intf_stream.sink   z_stream_i,
   // TCDM interface between the streamer and the memory
-  hci_core_intf.initiator        tcdm      ,
-
-  input  logic                        custom_priority_force_i,  
-  input  logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority_i,
-  output logic                        x_granted_o,
-  output logic                        w_granted_o,
-  output logic                        y_granted_o,
-  output logic                        z_granted_o,
-  // Control signals
-  input  cntrl_streamer_t        ctrl_i,
-  output flgs_streamer_t         flags_o
+  hci_core_intf.initiator        tcdm      
 );
 
 localparam int unsigned UW  = `HCI_SIZE_GET_UW(tcdm);
@@ -191,8 +184,8 @@ hci_core_mux_ooo #(
   .clear_i            ( clear_i                 ),
   // .priority_force_i   ( 'b0 ),
   // .priority_i         ( 'b0       ),
-  .priority_force_i   ( custom_priority_force_i ),
-  .priority_i         ( custom_priority_i       ),
+  .priority_force_i   ( ctrl_i.custom_priority_force ),
+  .priority_i         ( ctrl_i.custom_priority       ),
   .in                 ( virt_tcdm               ),
   .out                ( ldst_tcdm_pre_r_id      )
 );
@@ -419,11 +412,9 @@ assign flags_o.x_stream_source_flags = source_flags[XsourceStreamId];
 assign flags_o.w_stream_source_flags = source_flags[WsourceStreamId];
 assign flags_o.y_stream_source_flags = source_flags[YsourceStreamId];
 
-
-assign x_granted_o = virt_tcdm[XsourceStreamId].gnt;
-assign w_granted_o = virt_tcdm[WsourceStreamId].gnt;
-assign y_granted_o = virt_tcdm[YsourceStreamId].gnt;
-assign z_granted_o = 1'b0;
+assign flags_o.x_granted = virt_tcdm[XsourceStreamId].gnt;
+assign flags_o.w_granted = virt_tcdm[WsourceStreamId].gnt;
+assign flags_o.y_granted = virt_tcdm[YsourceStreamId].gnt;
 
 // Assign resulting streams.
 hwpe_stream_assign i_xstream_assign ( .push_i( out_stream[XsourceStreamId] ) ,

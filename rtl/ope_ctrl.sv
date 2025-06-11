@@ -34,18 +34,11 @@ module ope_ctrl
   // Control signals for the engine
   output logic                    priority_enforcer_enable_o,
   // Control signals for the state machine
-  output cntrl_scheduler_t        cntrl_scheduler_o ,
   output cntrl_engine_t           cntrl_engine_o    ,
   
   // Priority enforcer
-  input  logic                 x_granted_i,
-  input  logic                 w_granted_i,
-  input  logic                 y_granted_i,
-  input  logic                 z_valid_i,
-  output logic                 custom_priority_force_o,
-  output logic                 mask_streamer_o,
+  output logic                 mask_y_o,
   output logic                 mask_z_o,
-  output logic [NSS-1:0][$clog2(NSS)-1: 0] custom_priority_o,
   
   // Memory Scheduler
   input  flgs_streamer_t        flgs_streamer_i  ,
@@ -114,10 +107,15 @@ module ope_ctrl
   ope_priority_level_e priority_level;
   ope_priority_state_e streamer_current,streamer_next;
 
+  cntrl_scheduler_t cntrl_scheduler;
+
   logic streamer_change_state;
   logic grant;
   logic done_d,done_q;
   logic start_computing,finished;
+  logic x_granted;
+  logic w_granted;
+  logic y_granted;
 
   logic[$clog2(LoadCycles)-1:0] y_counter_d,y_counter_q;
   logic[$clog2(LoadCycles)-1:0] extra_d,extra_q;
@@ -259,12 +257,12 @@ module ope_ctrl
     cntrl_slave.done                = 1'b0;
     busy_o                          = 1'b1;
     priority_enforcer_enable_o      = 1'b0;
-    cntrl_scheduler_o.rst           = 1'b0;
-    cntrl_scheduler_o.finished      = 1'b0;
-    cntrl_scheduler_o.start_load_w  = 1'b0;
-    cntrl_scheduler_o.start_load_x  = 1'b0;
-    cntrl_scheduler_o.start_store_z = 1'b0;
-    cntrl_scheduler_o.start_load_y  = 1'b0;
+    cntrl_scheduler.rst           = 1'b0;
+    cntrl_scheduler.finished      = 1'b0;
+    cntrl_scheduler.start_load_w  = 1'b0;
+    cntrl_scheduler.start_load_x  = 1'b0;
+    cntrl_scheduler.start_store_z = 1'b0;
+    cntrl_scheduler.start_load_y  = 1'b0;
     case (current)
       OPE_LATCH_RST: begin
         latch_clear = 1'b1;
@@ -273,15 +271,15 @@ module ope_ctrl
       OPE_IDLE     : begin
         change_state                   = slave_start & tiler_valid;
         tiler_setback                  = change_state;
-        cntrl_scheduler_o.start_load_w = change_state;
+        cntrl_scheduler.start_load_w = change_state;
         busy_o      = 1'b0;
       end
       OPE_LOAD_W   : begin
-        cntrl_scheduler_o.start_load_x  = 1'b1;
+        cntrl_scheduler.start_load_x  = 1'b1;
       end
       OPE_LOAD_X   : begin
-        cntrl_scheduler_o.start_store_z = 1'b1;
-        cntrl_scheduler_o.start_load_y  = 1'b1;
+        cntrl_scheduler.start_store_z = 1'b1;
+        cntrl_scheduler.start_load_y  = 1'b1;
       end
       OPE_LOAD_Y   : begin
         change_state = start_computing;
@@ -292,8 +290,8 @@ module ope_ctrl
       end
       OPE_FINISHED : begin
         cntrl_slave.done           = 1'b1;
-        cntrl_scheduler_o.rst      = 1'b1;
-        cntrl_scheduler_o.finished = 1'b1;
+        cntrl_scheduler.rst      = 1'b1;
+        cntrl_scheduler.finished = 1'b1;
         busy_o                     = 1'b0;
       end
     endcase
@@ -302,7 +300,11 @@ module ope_ctrl
   /*---------------------------------------------------------------------------------------------*/
   /*                                         Streamer FSM                                        */
   /*---------------------------------------------------------------------------------------------*/
-  assign grant = x_granted_i | w_granted_i | y_granted_i;
+  
+  assign x_granted = flgs_streamer_i.x_granted;
+  assign w_granted = flgs_streamer_i.w_granted;
+  assign y_granted = flgs_streamer_i.y_granted;
+  assign grant = x_granted | w_granted | y_granted;
 
   always_comb begin : streamer_fsm
     case (streamer_current)
@@ -327,7 +329,7 @@ module ope_ctrl
   always_comb begin : streamer_values
     y_counter_d        = y_counter_q       ;
     priority_counter_d = priority_counter_q;
-    mask_streamer_o    = 1'b0;
+    mask_y_o    = 1'b0;
     mask_z_o           = 1'b1;
     extra_d            = extra_q;
     done_d             = done_q ;
@@ -336,35 +338,35 @@ module ope_ctrl
     
     case (streamer_current)
       STREAMER_Y  : begin
-       y_counter_d           = y_counter_q + y_granted_i;
+       y_counter_d           = y_counter_q + y_granted;
        streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
        priority_counter_d    = 2'b11 + streamer_change_state;
        start_computing       = streamer_change_state;
       end
       STREAMER_XWY: begin
         extra_d               = 1'b0;
-        y_counter_d           = y_counter_q + y_granted_i;
+        y_counter_d           = y_counter_q + y_granted;
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
         priority_counter_d    = priority_counter_q + grant;
       end
       STREAMER_XWM: begin
-        extra_d               = extra_q + y_granted_i;
+        extra_d               = extra_q + y_granted;
         priority_counter_d    = priority_counter_q + (grant | priority_counter_q[1]);
-        mask_streamer_o       = priority_counter_q[1];
-        streamer_change_state = (priority_counter_d == '0) & z_valid_i;
+        mask_y_o       = priority_counter_q[1];
+        streamer_change_state = (priority_counter_d == '0) & out_valid_o;
         mask_z_o              = ~(streamer_change_state & done_q);
       end
       STREAMER_XWZ: begin
-        streamer_change_state = (y_counter_q == LoadCycles-1) & y_granted_i;
-        y_counter_d           = streamer_change_state ? extra_q : y_counter_q + y_granted_i;
+        streamer_change_state = (y_counter_q == LoadCycles-1) & y_granted;
+        y_counter_d           = streamer_change_state ? extra_q : y_counter_q + y_granted;
         priority_counter_d    = priority_counter_q + grant;
         // mask_z_o              = ^priority_counter_q;
-        mask_streamer_o       = 1'b1;
+        mask_y_o       = 1'b1;
         mask_z_o              = priority_counter_q[1];
         done_d                = last_iteration_q;
       end 
       STREAMER_Z  : begin
-        y_counter_d           = y_counter_q + y_granted_i;
+        y_counter_d           = y_counter_q + y_granted;
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
         priority_counter_d    = 2'b11 + streamer_change_state;
         mask_z_o              = 1'b0;
@@ -384,19 +386,19 @@ module ope_ctrl
 
     case (priority_level)
       PRIORITY_X   : begin
-        custom_priority_o[0] = XsourceStreamId;
-        custom_priority_o[1] = WsourceStreamId;
-        custom_priority_o[2] = YsourceStreamId;
+        cntrl_streamer_o.custom_priority[0] = XsourceStreamId;
+        cntrl_streamer_o.custom_priority[1] = WsourceStreamId;
+        cntrl_streamer_o.custom_priority[2] = YsourceStreamId;
       end
       PRIORITY_W   : begin
-        custom_priority_o[0] = WsourceStreamId;
-        custom_priority_o[1] = YsourceStreamId;
-        custom_priority_o[2] = XsourceStreamId;
+        cntrl_streamer_o.custom_priority[0] = WsourceStreamId;
+        cntrl_streamer_o.custom_priority[1] = YsourceStreamId;
+        cntrl_streamer_o.custom_priority[2] = XsourceStreamId;
       end
       PRIORITY_YZ  :begin
-        custom_priority_o[0] = YsourceStreamId;
-        custom_priority_o[1] = XsourceStreamId;
-        custom_priority_o[2] = WsourceStreamId;
+        cntrl_streamer_o.custom_priority[0] = YsourceStreamId;
+        cntrl_streamer_o.custom_priority[1] = XsourceStreamId;
+        cntrl_streamer_o.custom_priority[2] = WsourceStreamId;
       end
     endcase
   end
@@ -478,10 +480,10 @@ module ope_ctrl
   end
 
   always_comb begin : req_start_assignment
-    cntrl_streamer_o.x_stream_source_ctrl.req_start    = cntrl_scheduler_o.start_load_x  && flgs_streamer_i.x_stream_source_flags.ready_start;
-    cntrl_streamer_o.w_stream_source_ctrl.req_start    = cntrl_scheduler_o.start_load_w  && flgs_streamer_i.w_stream_source_flags.ready_start;
-    cntrl_streamer_o.y_stream_source_ctrl.req_start    = cntrl_scheduler_o.start_load_y  && flgs_streamer_i.y_stream_source_flags.ready_start;
-    cntrl_streamer_o.z_stream_sink_ctrl.req_start      = cntrl_scheduler_o.start_store_z && flgs_streamer_i.z_stream_sink_flags.ready_start  ;
+    cntrl_streamer_o.x_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_x  && flgs_streamer_i.x_stream_source_flags.ready_start;
+    cntrl_streamer_o.w_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_w  && flgs_streamer_i.w_stream_source_flags.ready_start;
+    cntrl_streamer_o.y_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_y  && flgs_streamer_i.y_stream_source_flags.ready_start;
+    cntrl_streamer_o.z_stream_sink_ctrl.req_start      = cntrl_scheduler.start_store_z && flgs_streamer_i.z_stream_sink_flags.ready_start  ;
   end
 
   // NOTE: these are used for the casting, don't care for now
@@ -544,7 +546,7 @@ module ope_ctrl
     case (acc_state_current)
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_IDLE: begin
-        acc_change_state           = cntrl_scheduler_o.start_load_x;
+        acc_change_state           = cntrl_scheduler.start_load_x;
         accumulation_reg_y_ready_o = acc_change_state;
         acc_done_d                 = '0;
         y_write_reg_index_d        = '0;
@@ -682,7 +684,7 @@ module ope_ctrl
   assign clear_o        = clear || latch_clear;
   assign cfg_complete_o = tiler_valid;
 
-  assign custom_priority_force_o = 1'b1;
+  assign cntrl_streamer_o.custom_priority_force = 1'b1;
 
-  assign last_iteration_d = cntrl_scheduler_o.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
+  assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
 endmodule : ope_ctrl

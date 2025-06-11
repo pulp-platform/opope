@@ -44,7 +44,6 @@ module ope_top
   // Periph slave port for the controller side
   hwpe_ctrl_intf_periph.slave periph,
 `endif
-  // output cntrl_scheduler_t        debug_cntrl_scheduler_o,
   // TCDM master ports for the memory side
   hci_core_intf.initiator tcdm
 );
@@ -61,18 +60,14 @@ flgs_streamer_t  flgs_streamer;
 cntrl_engine_t   cntrl_engine;
 
 // FSM control signals and flags
-cntrl_scheduler_t cntrl_scheduler;
 flgs_scheduler_t  flgs_scheduler;
 
 // Register file binded from controller to FSM
 
 
-logic mask_streamer, mask_z;
+logic mask_y, mask_z;
 logic x_ready,w_ready,y_ready,z_valid;
 
-logic w_granted, x_granted;
-logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
-logic custom_priority_force;
 
 logic                           in_ready;
 logic [$clog2(REG_PER_CE)-1:0]  y_write_reg_index;
@@ -136,8 +131,9 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk
 /*--------------------------------------------------------------*/
 /* |                         Streamer                         | */
 /*--------------------------------------------------------------*/
+/* The streamer will present a single master TCDM port used to  */
+/* stream data to and from the memory.                          */
 
-// The streamer will present a single master TCDM port used to stream data to and from the memeory.
 ope_streamer #(
   .DW             ( DW                           ),
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
@@ -148,6 +144,8 @@ ope_streamer #(
   // Controller generated signals
   .enable_i                 ( 1'b1                  ),
   .clear_i                  ( clear                 ),
+  .ctrl_i                   ( cntrl_streamer        ),
+  .flags_o                  ( flgs_streamer         ),
   // Source interfaces for the incoming streams
   .x_stream_o               ( x_buffer              ),
   .w_stream_o               ( w_buffer              ),
@@ -155,16 +153,7 @@ ope_streamer #(
   // Sink interface for the outgoing stream
   .z_stream_i               ( z_buffer              ),
   // Master TCDM interface ports for the memory side
-  .tcdm                     ( tcdm                  ),
-  .custom_priority_force_i  ( custom_priority_force ),
-  .custom_priority_i        ( custom_priority       ),
-  .x_granted_o              ( x_granted             ),
-  .w_granted_o              ( w_granted             ),
-  .y_granted_o              ( y_granted             ),
-  .z_granted_o              ( z_granted             ),
-
-  .ctrl_i                   ( cntrl_streamer        ),
-  .flags_o                  ( flgs_streamer         )
+  .tcdm                     ( tcdm                  )
 );
 
 
@@ -194,7 +183,7 @@ ope_buffers #(
   .w_data_o    ( w_data        ),
 
   .y_ready_i   ( y_ready       ),
-  .mask_y_i    ( mask_streamer ),
+  .mask_y_i    ( mask_y        ),
   .y_valid_o   ( y_valid       ),
   .y_data_o    ( y_data        ),
 
@@ -276,16 +265,9 @@ ope_ctrl        #(
   .start_cfg_i        ( start_cfg               ),
   .cfg_complete_o     ( cfg_complete            ),
   .priority_enforcer_enable_o (priority_enforcer_enable),
-  .cntrl_scheduler_o  ( cntrl_scheduler         ),
   .cntrl_engine_o     ( cntrl_engine            ),
-  .x_granted_i             ( x_granted                ),
-  .w_granted_i             ( w_granted                ),
-  .y_granted_i             ( y_granted                ),
-  .z_valid_i               ( z_valid         ),
-  .custom_priority_force_o ( custom_priority_force    ),
-  .mask_streamer_o         ( mask_streamer            ),
+  .mask_y_o            ( mask_y            ),
   .mask_z_o                ( mask_z                   ),
-  .custom_priority_o       ( custom_priority          ),
   .flgs_streamer_i   ( flgs_streamer       ),
   .cntrl_streamer_o  ( cntrl_streamer      ),
 

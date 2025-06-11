@@ -165,6 +165,8 @@ package ope_pkg;
     fpnew_pkg::fp_format_e           input_cast_dst_fmt;
     fpnew_pkg::fp_format_e           output_cast_src_fmt;
     fpnew_pkg::fp_format_e           output_cast_dst_fmt;
+    logic                                                      custom_priority_force;  
+    logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority      ;
   } cntrl_streamer_t;
 
   typedef struct packed {
@@ -178,7 +180,10 @@ package ope_pkg;
     hci_package::hci_streamer_flags_t x_stream_source_flags;
     hci_package::hci_streamer_flags_t w_stream_source_flags;
     hci_package::hci_streamer_flags_t y_stream_source_flags;
-    hci_package::hci_streamer_flags_t z_stream_sink_flags;
+    hci_package::hci_streamer_flags_t z_stream_sink_flags  ;
+    logic                             x_granted            ; 
+    logic                             w_granted            ; 
+    logic                             y_granted            ;  
   } flgs_streamer_t;
 
   typedef struct packed {

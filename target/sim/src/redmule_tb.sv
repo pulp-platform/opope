@@ -414,9 +414,9 @@ module redmule_tb
   assign check_start_config = (periph_req && (periph_add[7:0] == 'h54) && (!periph_wen) && (periph_gnt)) ? 1'b1: 1'b0;
 
 `ifdef REDMULE_HWPE_SYNTH
-  assign finished_redmule = i_redmule_wrap.i_redmule_top.cntrl_scheduler_finished_;
+  assign finished_redmule = i_redmule_wrap.i_redmule_top.i_control.cntrl_scheduler_finished_;
 `else
-  assign finished_redmule = i_redmule_wrap.i_redmule_top.cntrl_scheduler.finished;
+  assign finished_redmule = i_redmule_wrap.i_redmule_top.i_control.cntrl_scheduler.finished;
 `endif
 
   always_ff @(posedge clk_i) begin 
