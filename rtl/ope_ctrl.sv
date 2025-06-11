@@ -42,7 +42,6 @@ module ope_ctrl
   input  logic                 w_granted_i,
   input  logic                 y_granted_i,
   input  logic                 z_valid_i,
-  input  logic                 last_iteration_i,
   output logic                 custom_priority_force_o,
   output logic                 mask_streamer_o,
   output logic                 mask_z_o,
@@ -89,6 +88,7 @@ module ope_ctrl
   logic tiler_setback, tiler_valid;
   logic slave_start;
   logic change_state;
+  logic last_iteration_d,last_iteration_q;
   
   hwpe_ctrl_package::ctrl_regfile_t reg_file_d, reg_file_q;
   hwpe_ctrl_package::ctrl_slave_t   cntrl_slave;
@@ -126,6 +126,36 @@ module ope_ctrl
   // Memory scheduler
   logic [31:0] total_len_x_w;
   logic [31:0] total_len_y_z;
+
+  // Engine
+  typedef enum logic [2:0] {
+    ACC_IDLE = 3'b000,
+    ACC_Y_READ = 3'b001,
+    ACC_LOAD_ENGINE = 3'b010,
+    ACC_Y_READ_ENGINE_RUNNING = 3'b011,
+    ACC_ENGINE_RUNNING = 3'b100,
+    ACC_Z_RELOAD_Y_ENGINE = 3'b101,
+    ACC_Z_RELOAD = 3'b110,
+    ACC_Z_STORE = 3'b111
+  } acc_state_e;
+
+  acc_state_e acc_state_current, acc_state_next;
+  logic prefetched_d, prefetched_q;
+  logic [31:0] inner_loop_counter_q, inner_loop_counter_d;
+
+  logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index_q, y_write_reg_index_d;
+  logic [$clog2(Height)-1:0] y_write_row_index_q, y_write_row_index_d;
+
+  logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index_q, z_read_reg_index_d;
+  logic [$clog2(Height)-1:0] z_read_row_index_q, z_read_row_index_d;
+
+  logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine_q, reg_write_to_engine_d;  
+  logic acc_change_state; 
+  logic y_bias_selector; 
+  logic acc_input_selector;
+  logic external_loading;
+  logic acc_done_d,acc_done_q;
+
 
   /*---------------------------------------------------------------------------------------------*/
   /*                                   Control slave interface                                   */
@@ -281,7 +311,7 @@ module ope_ctrl
     // -----------------------------------------------------------------------------------------------------------
       STREAMER_XWY: streamer_next = streamer_change_state                     ? STREAMER_XWM : streamer_current;
     // -----------------------------------------------------------------------------------------------------------
-      STREAMER_XWZ: streamer_next = streamer_change_state && last_iteration_i ? STREAMER_XWM :
+      STREAMER_XWZ: streamer_next = streamer_change_state && last_iteration_q ? STREAMER_XWM :
                                     streamer_change_state                     ? STREAMER_XWY : streamer_current;
     // -----------------------------------------------------------------------------------------------------------
       STREAMER_Z  : streamer_next = streamer_change_state                     ? STREAMER_Y   : streamer_current;
@@ -331,7 +361,7 @@ module ope_ctrl
         // mask_z_o              = ^priority_counter_q;
         mask_streamer_o       = 1'b1;
         mask_z_o              = priority_counter_q[1];
-        done_d                = last_iteration_i;
+        done_d                = last_iteration_q;
       end 
       STREAMER_Z  : begin
         y_counter_d           = y_counter_q + y_granted_i;
@@ -464,34 +494,6 @@ module ope_ctrl
   /*                                          Engine FSM                                         */
   /*---------------------------------------------------------------------------------------------*/
 
-  typedef enum logic [2:0] {
-    ACC_IDLE = 3'b000,
-    ACC_Y_READ = 3'b001,
-    ACC_LOAD_ENGINE = 3'b010,
-    ACC_Y_READ_ENGINE_RUNNING = 3'b011,
-    ACC_ENGINE_RUNNING = 3'b100,
-    ACC_Z_RELOAD_Y_ENGINE = 3'b101,
-    ACC_Z_RELOAD = 3'b110,
-    ACC_Z_STORE = 3'b111
-  } acc_state_e;
-
-  acc_state_e acc_state_current, acc_state_next;
-  logic prefetched_d, prefetched_q;
-  logic [31:0] inner_loop_counter_q, inner_loop_counter_d;
-
-  logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index_q, y_write_reg_index_d;
-  logic [$clog2(Height)-1:0] y_write_row_index_q, y_write_row_index_d;
-
-  logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index_q, z_read_reg_index_d;
-  logic [$clog2(Height)-1:0] z_read_row_index_q, z_read_row_index_d;
-
-  logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine_q, reg_write_to_engine_d;  
-  logic acc_change_state; 
-  logic y_bias_selector; 
-  logic acc_input_selector;
-  logic external_loading;
-  logic acc_done_d,acc_done_q;
-
   always_comb begin : acc_fsm
     acc_state_next = acc_state_current;
 
@@ -512,7 +514,7 @@ module ope_ctrl
       ACC_Z_RELOAD              : acc_state_next = acc_change_state                     ? ACC_Z_STORE               : ACC_Z_RELOAD             ;
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_STORE               : acc_state_next = acc_change_state && acc_done_q       ? ACC_IDLE                  :
-                                                   acc_change_state && last_iteration_i ? ACC_ENGINE_RUNNING        : 
+                                                   acc_change_state && last_iteration_q ? ACC_ENGINE_RUNNING        : 
                                                    acc_change_state                     ? ACC_Y_READ_ENGINE_RUNNING : ACC_Z_STORE              ; 
     // -------------------------------------------------------------------------------------------------------------------------------------
       default                   : acc_state_next = ACC_IDLE;
@@ -647,7 +649,8 @@ module ope_ctrl
       z_read_reg_index_q    <= '0;
       z_read_row_index_q    <= '0;
       prefetched_q          <= '0;
-      acc_done_q                <= '0;
+      acc_done_q            <= '0;
+      last_iteration_q      <= '0;
     end else begin
       acc_state_current     <= acc_state_next       ;
       y_write_reg_index_q   <= y_write_reg_index_d  ;
@@ -657,7 +660,8 @@ module ope_ctrl
       z_read_reg_index_q    <= z_read_reg_index_d   ;
       z_read_row_index_q    <= z_read_row_index_d   ;
       prefetched_q          <= prefetched_d         ;
-      acc_done_q                <= acc_done_d               ;
+      acc_done_q            <= acc_done_d           ;
+      last_iteration_q      <= last_iteration_d     ;
     end
   end
 
@@ -680,4 +684,5 @@ module ope_ctrl
 
   assign custom_priority_force_o = 1'b1;
 
+  assign last_iteration_d = cntrl_scheduler_o.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
 endmodule : ope_ctrl

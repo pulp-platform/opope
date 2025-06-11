@@ -54,6 +54,44 @@ localparam int unsigned DATAW_ALIGN = DATAW;
 logic                       clear;
 logic                       start_cfg, cfg_complete;
 
+// Streamer control signals and flags
+cntrl_streamer_t cntrl_streamer;
+flgs_streamer_t  flgs_streamer;
+
+cntrl_engine_t   cntrl_engine;
+
+// FSM control signals and flags
+cntrl_scheduler_t cntrl_scheduler;
+flgs_scheduler_t  flgs_scheduler;
+
+// Register file binded from controller to FSM
+
+
+logic mask_streamer, mask_z;
+logic x_ready,w_ready,y_ready,z_valid;
+
+logic w_granted, x_granted;
+logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
+logic custom_priority_force;
+
+logic                           in_ready;
+logic [$clog2(REG_PER_CE)-1:0]  y_write_reg_index;
+logic [$clog2(Height)-1:0]      y_write_row_index;
+logic [$clog2(REG_PER_CE)-1:0]  z_read_reg_index;
+logic [$clog2(Height)-1:0]      z_read_row_index;
+logic [$clog2(REG_PER_CE)-1:0]  reg_write_to_engine;
+logic y_bias_selector; 
+logic acc_input_selector;
+logic external_loading;
+
+logic priority_enforcer_enable;
+logic reg_to_engine_valid;
+logic x_reg_to_engine_valid, w_reg_to_engine_valid;
+logic [DATAW/2 - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
+
+/*--------------------------------------------------------------*/
+/* |                   Start Configuration                    | */
+/*--------------------------------------------------------------*/
 `ifdef TARGET_REDMULE_HWPE
   /* If there is no Xif we directly plug the
      control port into the hwpe-slave device */
@@ -88,28 +126,6 @@ logic                       start_cfg, cfg_complete;
   );
 
 `endif
-
-// Streamer control signals and flags
-cntrl_streamer_t cntrl_streamer;
-flgs_streamer_t  flgs_streamer;
-
-cntrl_engine_t   cntrl_engine;
-
-// FSM control signals and flags
-cntrl_scheduler_t cntrl_scheduler;
-flgs_scheduler_t  flgs_scheduler;
-
-// Register file binded from controller to FSM
-
-
-logic mask_streamer, mask_z;
-logic x_ready,w_ready,y_ready,z_valid;
-logic last_iteration_d,last_iteration_q;
-
-logic w_granted, x_granted;
-logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
-logic custom_priority_force;
-
 /*--------------------------------------------------------------*/
 /* |                         Streamer                         | */
 /*--------------------------------------------------------------*/
@@ -164,16 +180,12 @@ ope_streamer #(
 /* |                      INPUT_REGISTERS                      | */
 /*---------------------------------------------------------------*/
 
-// NOTE: consider a out_ready_i signal to synchronize everything
-// Right now, it is not needed
-
-
-logic reg_to_engine_valid;
-logic x_reg_to_engine_valid, w_reg_to_engine_valid;
-logic [DATAW/2 - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
-
-
 assign reg_to_engine_valid = x_reg_to_engine_valid && w_reg_to_engine_valid;
+assign w_buffer_d.ready = w_ready;
+assign x_buffer_d.ready = x_ready;
+assign y_buffer_d.ready = y_ready &~ mask_streamer;
+assign z_buffer_q.strb = {{DATAW_ALIGN/8{1'b1}}};
+assign z_buffer_q.valid = z_valid &~ mask_z;
 
 reg_array_io_wrapper #(
   .READING_POLICY   ( ope_pkg::SERIALLY ),
@@ -210,41 +222,13 @@ reg_array_io_wrapper #(
   .valid_o            (w_reg_to_engine_valid),
   .not_empty_o        (        )     
 );
-assign w_buffer_d.ready = w_ready; //&~ mask_streamer;
-assign x_buffer_d.ready = x_ready; // &~ mask_streamer;
 
 
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      last_iteration_q <= '0;
-    end else begin
-      last_iteration_q <= last_iteration_d;
-    end
-  end
-
-  assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer.y_stream_source_flags.done | last_iteration_q;
 
 /*---------------------------------------------------------------*/
 /* |                          Engine                           | */
 /*---------------------------------------------------------------*/
-
-// Engine signals
-// Control signal for successive accumulations
-
-logic [Width-1:0][Height-1:0]   in_ready;
-logic [$clog2(REG_PER_CE)-1:0]  y_write_reg_index;
-logic [$clog2(Height)-1:0]      y_write_row_index;
-logic [$clog2(REG_PER_CE)-1:0]  z_read_reg_index;
-logic [$clog2(Height)-1:0]      z_read_row_index;
-logic [$clog2(REG_PER_CE)-1:0]  reg_write_to_engine;
-logic y_bias_selector; 
-logic acc_input_selector;
-logic external_loading;
-
-logic priority_enforcer_enable;
-
-
 
 // logic ce_clk_en;
 // logic ce_clk  ;
@@ -289,7 +273,6 @@ ope_engine     #(
   // Memory Scheduler
   .cntrl_engine_i     ( cntrl_engine     ) // Only inner loop count is used from this!
 );
-assign y_buffer_d.ready = y_ready &~ mask_streamer;
 
 /*---------------------------------------------------------------*/
 /* |                        Controller                         | */
@@ -321,7 +304,6 @@ ope_ctrl        #(
   .w_granted_i             ( w_granted                ),
   .y_granted_i             ( y_granted                ),
   .z_valid_i               ( z_valid         ),
-  .last_iteration_i        ( last_iteration_q ),
   .custom_priority_force_o ( custom_priority_force    ),
   .mask_streamer_o         ( mask_streamer            ),
   .mask_z_o                ( mask_z                   ),
@@ -347,7 +329,5 @@ ope_ctrl        #(
   .periph             ( periph                  )
 );
 
-  assign z_buffer_q.strb = {{DATAW_ALIGN/8{1'b1}}};
-  assign z_buffer_q.valid = z_valid &~ mask_z;
 
 endmodule : ope_top
