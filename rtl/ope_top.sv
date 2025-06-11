@@ -106,6 +106,10 @@ logic mask_streamer, mask_z;
 logic x_ready,w_ready,y_ready,z_valid;
 logic last_iteration_d,last_iteration_q;
 
+logic w_granted, x_granted;
+logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
+logic custom_priority_force;
+
 /*--------------------------------------------------------------*/
 /* |                         Streamer                         | */
 /*--------------------------------------------------------------*/
@@ -124,9 +128,6 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) y_buffer_d         ( .c
 // Z streaming interface
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer_q         ( .clk( clk_i ) );
 
-logic w_granted, x_granted;
-logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
-logic custom_priority_force;
 
 // The streamer will present a single master TCDM port used to stream data to and from the memeory.
 ope_streamer #(
@@ -231,11 +232,29 @@ assign x_buffer_d.ready = x_ready; // &~ mask_streamer;
 // Engine signals
 // Control signal for successive accumulations
 
-logic       [Width-1:0][Height-1:0] in_ready;
-
-
+logic [Width-1:0][Height-1:0]   in_ready;
+logic [$clog2(REG_PER_CE)-1:0]  y_write_reg_index;
+logic [$clog2(Height)-1:0]      y_write_row_index;
+logic [$clog2(REG_PER_CE)-1:0]  z_read_reg_index;
+logic [$clog2(Height)-1:0]      z_read_row_index;
+logic [$clog2(REG_PER_CE)-1:0]  reg_write_to_engine;
+logic y_bias_selector; 
+logic acc_input_selector;
+logic external_loading;
 
 logic priority_enforcer_enable;
+
+
+
+// logic ce_clk_en;
+// logic ce_clk  ;
+// tc_clk_gating ce_clock_gating (
+//   .clk_i      ( clk_i     ),
+//   .en_i       ( ce_clk_en ),
+//   .test_en_i  ( '0        ),
+//   .clk_o      ( ce_clk    )    
+// );
+
 // Engine instance
 ope_engine     #(
   .FpFormat        ( FpFormat),
@@ -244,7 +263,7 @@ ope_engine     #(
   .NumPipeRegs     ( NumPipeRegs   ),
   .PipeConfig      ( PipeConfig    )
 ) i_ope_engine (
-  .clk_i              ( clk_i            ),
+  .clk_i              ( clk_i           ),
   .rst_ni             ( rst_ni           ),
   .x_input_i          ( x_reg_to_engine_data       ),
   .w_input_i          ( w_reg_to_engine_data       ),
@@ -253,18 +272,21 @@ ope_engine     #(
    
    // From controller
   .reg_enable_i       ( priority_enforcer_enable ),
+  .y_write_reg_index_i(y_write_reg_index),
+  .y_write_row_index_i(y_write_row_index),
+  .z_read_reg_index_i(z_read_reg_index),
+  .z_read_row_index_i(z_read_row_index),
+  .reg_write_to_engine_i(reg_write_to_engine),
+  .y_bias_selector_i     (y_bias_selector),
+  .acc_input_selector_i  (acc_input_selector),
+  .external_loading_i    (external_loading),
 
   // From reg_io_wrapper
   .in_valid_i         ( reg_to_engine_valid         ),
   .y_in_valid_i       ( y_buffer_d.valid & y_buffer_d.ready),
-  .in_ready_o         ( in_ready         ),
+  .in_ready_i         ( in_ready         ),
 
   // Memory Scheduler
-  .out_valid_o        ( z_valid),
-  .out_ready_i        ( z_buffer_q.ready &~ mask_z),
-  .accumulation_reg_y_ready_o (y_ready),
-  .last_iteration_i   ( last_iteration_q ),
-  .start_i             (cntrl_scheduler.start_load_x),
   .cntrl_engine_i     ( cntrl_engine     ) // Only inner loop count is used from this!
 );
 assign y_buffer_d.ready = y_ready &~ mask_streamer;
@@ -307,6 +329,21 @@ ope_ctrl        #(
   .flgs_streamer_i   ( flgs_streamer       ),
   .cntrl_streamer_o  ( cntrl_streamer      ),
 
+  .in_valid_i         ( reg_to_engine_valid         ),
+  .y_in_valid_i       ( y_buffer_d.valid & y_buffer_d.ready),
+  .out_ready_i        ( z_buffer_q.ready &~ mask_z),
+  .accumulation_reg_y_ready_o (y_ready),
+  .out_valid_o        ( z_valid),
+  .in_ready_o         ( in_ready         ),
+  .y_write_reg_index_o(y_write_reg_index),
+  .y_write_row_index_o(y_write_row_index),
+  .z_read_reg_index_o(z_read_reg_index),
+  .z_read_row_index_o(z_read_row_index),
+  .reg_write_to_engine_o(reg_write_to_engine),
+  .y_bias_selector_o     (y_bias_selector),
+  .acc_input_selector_o  (acc_input_selector),
+  .external_loading_o    (external_loading),
+  .ce_clk_en_o          (ce_clk_en),
   .periph             ( periph                  )
 );
 

@@ -537,8 +537,8 @@ module redmule_tb
     while(i_redmule_wrap.i_redmule_top.i_control.current != i_redmule_wrap.i_redmule_top.i_control.OPE_FINISHED) begin
     // ----------------------------------------------------------------------- 
       if(ENABLE_ENGINE_OUTPUT) begin 
-        if(i_redmule_wrap.i_redmule_top.i_ope_engine.out_ready_i && 
-           i_redmule_wrap.i_redmule_top.i_ope_engine.out_valid_o) begin
+        if(i_redmule_wrap.i_redmule_top.i_control.out_ready_i && 
+           i_redmule_wrap.i_redmule_top.i_control.out_valid_o) begin
           cnt =  cnt+1 ;
           $display("[Engine] - Engine Output=%04x", i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[0]);
           if(cnt%16 == 0) $display("----------------------------------");

@@ -51,7 +51,24 @@ module ope_ctrl
   // Memory Scheduler
   input  flgs_streamer_t        flgs_streamer_i  ,
   output cntrl_streamer_t       cntrl_streamer_o,
-
+  
+  // Buffers
+  input  logic       in_valid_i         ,
+  input  logic       y_in_valid_i       ,
+  input  logic       out_ready_i        ,
+  output logic       accumulation_reg_y_ready_o,  
+  output logic       out_valid_o        ,
+  output logic       in_ready_o         , 
+  output logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index_o,
+  output logic [$clog2(Height)-1:0]     y_write_row_index_o,
+  output logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index_o,
+  output logic [$clog2(Height)-1:0]     z_read_row_index_o,
+  output logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine_o,
+  output logic y_bias_selector_o     ,
+  output logic acc_input_selector_o  ,
+  output logic external_loading_o    ,
+  output logic ce_clk_en_o       ,
+  
   // Peripheral slave port
   hwpe_ctrl_intf_periph.slave     periph
 );
@@ -443,6 +460,216 @@ module ope_ctrl
   assign cntrl_streamer_o.output_cast_src_fmt = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
   assign cntrl_streamer_o.output_cast_dst_fmt = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
 
+  /*---------------------------------------------------------------------------------------------*/
+  /*                                          Engine FSM                                         */
+  /*---------------------------------------------------------------------------------------------*/
+
+  typedef enum logic [2:0] {
+    ACC_IDLE = 3'b000,
+    ACC_Y_READ = 3'b001,
+    ACC_LOAD_ENGINE = 3'b010,
+    ACC_Y_READ_ENGINE_RUNNING = 3'b011,
+    ACC_ENGINE_RUNNING = 3'b100,
+    ACC_Z_RELOAD_Y_ENGINE = 3'b101,
+    ACC_Z_RELOAD = 3'b110,
+    ACC_Z_STORE = 3'b111
+  } acc_state_e;
+
+  acc_state_e acc_state_current, acc_state_next;
+  logic prefetched_d, prefetched_q;
+  logic [31:0] inner_loop_counter_q, inner_loop_counter_d;
+
+  logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index_q, y_write_reg_index_d;
+  logic [$clog2(Height)-1:0] y_write_row_index_q, y_write_row_index_d;
+
+  logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index_q, z_read_reg_index_d;
+  logic [$clog2(Height)-1:0] z_read_row_index_q, z_read_row_index_d;
+
+  logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine_q, reg_write_to_engine_d;  
+  logic acc_change_state; 
+  logic y_bias_selector; 
+  logic acc_input_selector;
+  logic external_loading;
+  logic acc_done_d,acc_done_q;
+
+  always_comb begin : acc_fsm
+    acc_state_next = acc_state_current;
+
+    case (acc_state_current)
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_IDLE                  : acc_state_next = acc_change_state                     ? ACC_Y_READ                : ACC_IDLE                 ;
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Y_READ                : acc_state_next = acc_change_state                     ? ACC_LOAD_ENGINE           : ACC_Y_READ               ;
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_LOAD_ENGINE           : acc_state_next = acc_change_state                     ? ACC_Y_READ_ENGINE_RUNNING : ACC_LOAD_ENGINE          ;
+    // -------------------------------------------------------------------------------------------------------------------------------------       
+      ACC_Y_READ_ENGINE_RUNNING : acc_state_next = acc_change_state                     ? ACC_Z_RELOAD_Y_ENGINE     : ACC_Y_READ_ENGINE_RUNNING;
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_ENGINE_RUNNING        : acc_state_next = acc_change_state                     ? ACC_Z_RELOAD              : ACC_ENGINE_RUNNING       ; 
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Z_RELOAD_Y_ENGINE     : acc_state_next = acc_change_state                     ? ACC_Z_STORE               : ACC_Z_RELOAD_Y_ENGINE    ; 
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Z_RELOAD              : acc_state_next = acc_change_state                     ? ACC_Z_STORE               : ACC_Z_RELOAD             ;
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Z_STORE               : acc_state_next = acc_change_state && acc_done_q       ? ACC_IDLE                  :
+                                                   acc_change_state && last_iteration_i ? ACC_ENGINE_RUNNING        : 
+                                                   acc_change_state                     ? ACC_Y_READ_ENGINE_RUNNING : ACC_Z_STORE              ; 
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      default                   : acc_state_next = ACC_IDLE;
+    // -------------------------------------------------------------------------------------------------------------------------------------
+    endcase
+  end
+
+  always_comb begin : acc_values
+    y_write_reg_index_d   = y_write_reg_index_q  ;
+    y_write_row_index_d   = y_write_row_index_q  ;
+    inner_loop_counter_d  = inner_loop_counter_q ;
+    reg_write_to_engine_d = reg_write_to_engine_q;
+    z_read_reg_index_d    = z_read_reg_index_q   ;
+    z_read_row_index_d    = z_read_row_index_q   ;
+    prefetched_d          = prefetched_q         ;
+    acc_done_d            = acc_done_q               ;
+
+    acc_change_state              = 1'b0;
+    y_bias_selector               = 1'b0;
+    acc_input_selector            = 1'b0;
+    external_loading              = 1'b0;
+    in_ready_o                    = 1'b0;
+    out_valid_o                   = 1'b0;
+    accumulation_reg_y_ready_o    = 1'b0;
+    ce_clk_en_o                   = 1'b1;
+
+    case (acc_state_current)
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_IDLE: begin
+        acc_change_state           = cntrl_scheduler_o.start_load_x;
+        accumulation_reg_y_ready_o = acc_change_state;
+        acc_done_d                 = '0;
+        y_write_reg_index_d        = '0;
+        y_write_row_index_d        = '0;
+        z_read_reg_index_d         = '0;
+        inner_loop_counter_d       = '0;
+        reg_write_to_engine_d      = '0;
+        prefetched_d               = '0;
+        ce_clk_en_o                = '0;
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Y_READ: begin
+        if (y_in_valid_i) begin
+          y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
+          y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
+          acc_change_state        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
+        end
+        external_loading              = 1'b1        ;
+        accumulation_reg_y_ready_o    = 1'b1        ;
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_LOAD_ENGINE: begin
+        if (in_valid_i) begin
+          inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
+          z_read_reg_index_d = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1; // This can be used both ways
+          acc_change_state = (z_read_reg_index_q == REG_PER_CE - 1);
+        end
+        if (y_in_valid_i && prefetched_q == 1'b0) begin // Prefetch the y values
+          y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
+          y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
+          prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
+        end
+        accumulation_reg_y_ready_o = 1'b1;
+        external_loading           = 1'b1;
+        y_bias_selector            = 1'b1;
+        in_ready_o                 = 1'b1;
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Y_READ_ENGINE_RUNNING: begin
+        if (y_in_valid_i && prefetched_q == 1'b0) begin // Prefetch the y values
+          y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
+          y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
+          prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
+        end
+        if (in_valid_i) begin // This has to happen after the prefetched y is loaded
+          inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
+          acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
+        end
+        if (prefetched_q == 1'b1 && acc_state_current == ACC_Y_READ_ENGINE_RUNNING && acc_state_next == ACC_Z_RELOAD_Y_ENGINE) prefetched_d = 1'b0; // Reloaded value completed
+        accumulation_reg_y_ready_o = ~(prefetched_q ); //~acc_change_state;
+        in_ready_o                 = 1'b1;
+        external_loading           = ~(prefetched_q );
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_ENGINE_RUNNING: begin
+        if (in_valid_i) begin 
+          inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
+          acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
+        end
+        in_ready_o                 = 1'b1;
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Z_RELOAD_Y_ENGINE: begin // Storing the z values to acc, reload the y values to the engine
+        if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
+        z_read_reg_index_d         = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
+        reg_write_to_engine_d      = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
+        acc_change_state               = (z_read_reg_index_q == REG_PER_CE - 1);
+        acc_input_selector         = 1'b1;
+        y_bias_selector            = 1'b1;
+        in_ready_o                 = 1'b1;
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Z_RELOAD: begin // Storing the z values to acc
+        z_read_reg_index_d    = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
+        reg_write_to_engine_d = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
+        acc_change_state = (z_read_reg_index_q == REG_PER_CE - 1);
+        acc_input_selector         = 1'b1;
+        acc_done_d                     = 1'b1;
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+      ACC_Z_STORE: begin // Stream out the z values to the memory
+        out_valid_o = 1'b1;
+        in_ready_o  = 1'b1;
+        if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
+        if (out_ready_i) begin
+          z_read_reg_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? 'b0: z_read_reg_index_q + 2;
+          z_read_row_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? (z_read_row_index_q == Height - 1) ? 'b0: z_read_row_index_q + 1: z_read_row_index_q;
+          acc_change_state   = (z_read_row_index_q == Height - 1 && z_read_reg_index_q == REG_PER_CE - 2); // This need to change
+        end
+      end
+    // -------------------------------------------------------------------------------------------------------------------------------------
+    endcase
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : seq_block
+    if (~rst_ni) begin
+      acc_state_current     <= ACC_IDLE;
+      y_write_reg_index_q   <= '0;
+      y_write_row_index_q   <= '0;
+      inner_loop_counter_q  <= '0;
+      reg_write_to_engine_q <= '0;
+      z_read_reg_index_q    <= '0;
+      z_read_row_index_q    <= '0;
+      prefetched_q          <= '0;
+      acc_done_q                <= '0;
+    end else begin
+      acc_state_current     <= acc_state_next       ;
+      y_write_reg_index_q   <= y_write_reg_index_d  ;
+      y_write_row_index_q   <= y_write_row_index_d  ;
+      inner_loop_counter_q  <= inner_loop_counter_d ;
+      reg_write_to_engine_q <= reg_write_to_engine_d;
+      z_read_reg_index_q    <= z_read_reg_index_d   ;
+      z_read_row_index_q    <= z_read_row_index_d   ;
+      prefetched_q          <= prefetched_d         ;
+      acc_done_q                <= acc_done_d               ;
+    end
+  end
+
+
+  assign y_write_reg_index_o   = y_write_reg_index_q;
+  assign y_write_row_index_o   = y_write_row_index_q;
+  assign z_read_reg_index_o    = z_read_reg_index_q ;
+  assign z_read_row_index_o    = z_read_row_index_q ;
+  assign reg_write_to_engine_o = reg_write_to_engine_q;
+  assign y_bias_selector_o     = y_bias_selector    ;
+  assign acc_input_selector_o  = acc_input_selector ;
+  assign external_loading_o    = external_loading   ;
 
   /*---------------------------------------------------------------------------------------------*/
   /*                            Other combinational assigmnets                                   */
