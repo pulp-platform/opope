@@ -245,17 +245,12 @@ package ope_pkg;
   } flgs_engine_t;
 
   typedef struct packed {
-    logic first_load;
     logic start_load_x;
     logic start_load_w;
     logic start_load_y;
     logic start_store_z;
     logic rst;
     logic finished;
-    logic loading_y;
-    logic loading_x;
-    logic loading_w;
-    logic storing_z;
   } cntrl_scheduler_t;
 
   typedef struct packed {

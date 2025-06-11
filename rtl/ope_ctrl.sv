@@ -527,7 +527,7 @@ module ope_ctrl
     z_read_reg_index_d    = z_read_reg_index_q   ;
     z_read_row_index_d    = z_read_row_index_q   ;
     prefetched_d          = prefetched_q         ;
-    acc_done_d            = acc_done_q               ;
+    acc_done_d            = acc_done_q           ;
 
     acc_change_state              = 1'b0;
     y_bias_selector               = 1'b0;
@@ -624,7 +624,7 @@ module ope_ctrl
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_STORE: begin // Stream out the z values to the memory
         out_valid_o = 1'b1;
-        in_ready_o  = 1'b1;
+        in_ready_o  = ~acc_done_q;
         if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
         if (out_ready_i) begin
           z_read_reg_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? 'b0: z_read_reg_index_q + 2;

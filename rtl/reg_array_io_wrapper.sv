@@ -25,22 +25,23 @@ module reg_array_io_wrapper
   logic [DEPTH-1:0][DATA_WIDTH/DEPTH-1:0] reg_d, reg_q;
   logic                                   reg_valid_d, reg_valid_q;
   logic [DEPTH-1:0]                       reading_counter_d, reading_counter_q;   // The counter that shows which register to be read from, depends on the reading policy
+  logic change_data;
+
+  always_comb begin : reg_values
+    valid_o = reg_valid_q;
+    reading_counter_d = (ready_i && reg_valid_q && reading_counter_q == DEPTH*DEPTH-1) ? '0 
+                                                                                        : reading_counter_q + (ready_i && reg_valid_q);
+    change_data  = (reading_counter_q == DEPTH*DEPTH-1) & (reading_counter_d == '0);
+    reg_valid_d  = valid_i ? 1'b1 : change_data ? '0 : reg_valid_q;
+    ready_o      = change_data | ~reg_valid_q;
+
+    if (clear_i) reading_counter_d = 'b0;
+    if (clear_i) reg_valid_d       = 'b0;
+  end
 
   // **** READING ****
-  always_comb begin
-    reading_counter_d = reading_counter_q;
-    data_o            = reg_q[reading_counter_q[$clog2(DEPTH) - 1:0]];
-    reg_valid_d       = (reading_counter_q == DEPTH*DEPTH-1) & (reading_counter_d == '0) && ~valid_i ? '0 : valid_i ? 1'b1 : reg_valid_q;
-
-    if (ready_i && reg_valid_q) begin
-      reading_counter_d = (reading_counter_q == DEPTH*DEPTH-1) ? '0 : reading_counter_q + 1;
-      if (READING_POLICY == ope_pkg::INTERLEAVED) begin             // Read from different registers all the time, rotating back
-        data_o = reg_q[reading_counter_q[$clog2(DEPTH) - 1:0]];
-      end else if (READING_POLICY == ope_pkg::SERIALLY) begin       // Read from the same register DEPTH times
-        data_o = reg_q[reading_counter_q[DEPTH-1 : $clog2(DEPTH)]];
-      end
-    end
-  end
+  if (READING_POLICY == ope_pkg::INTERLEAVED) assign data_o = reg_q[reading_counter_q[$clog2(DEPTH) - 1:0]];
+  if (READING_POLICY == ope_pkg::SERIALLY   ) assign data_o = reg_q[reading_counter_q[DEPTH-1 : $clog2(DEPTH)]];
 
   // **** WRITING ****
   always_comb begin
@@ -50,27 +51,18 @@ module reg_array_io_wrapper
         reg_d[ii%DEPTH][ii/DEPTH*BITW +: BITW]  = data_i[ii*BITW +: BITW];
       end
     end
+    if (clear_i) reg_d = '0;
   end
-
-  assign ready_o = (~valid_o) | ((reading_counter_q == DEPTH*DEPTH-1) & (reading_counter_d == '0));
-  assign valid_o = reg_valid_q;
-
 
   always_ff @(posedge clk_i or negedge rst_ni) begin 
     if (~rst_ni) begin
-      reading_counter_q     <= 'b0;
-      reg_valid_q           <= 'b0;
-      reg_q                 <= 'b0;
+      reading_counter_q <= 'b0;
+      reg_valid_q       <= 'b0;
+      reg_q             <= 'b0;
     end else begin 
-      if (clear_i) begin
-        reading_counter_q     <= 'b0;
-        reg_valid_q           <= 'b0;
-        reg_q                 <= 'b0;
-      end else begin 
-        reading_counter_q     <= reading_counter_d;
-        reg_valid_q           <= reg_valid_d;
-        reg_q                 <= reg_d;
-      end
+      reading_counter_q <= reading_counter_d;
+      reg_valid_q       <= reg_valid_d;
+      reg_q             <= reg_d;
     end
   end
 
