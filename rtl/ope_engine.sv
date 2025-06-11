@@ -28,44 +28,19 @@ module ope_engine
   input  logic                    [2*W-1:0][BITW-1:0]      y_bias_i           , // Row of biases
   output logic                    [2*W-1:0][BITW-1:0]      z_output_o         , // Row of outputs
 
-  input  logic                    [2:0]                    fma_is_boxed_i     , //3'b111
-  input  logic                    [1:0]                    noncomp_is_boxed_i ,
-  input  fpnew_pkg::roundmode_e                            stage1_rnd_i       , //fpnew_pkg::RNE
-  input  fpnew_pkg::roundmode_e                            stage2_rnd_i       ,
-  input  fpnew_pkg::operation_e                            op1_i              ,
-  input  fpnew_pkg::operation_e                            op2_i              ,
-  input  fpu_fmt_e                                         memory_fmt_i       ,
-  input  fpu_fmt_e                                         computing_fmt_i    ,
-  input  logic                                             same_fmt_i         , 
-  input  logic                                             op_mod_i           , //0
-  input  TagType                                           tag_i              , //0
-  input  AuxType                                           aux_i              , //0
-
   input  logic                                             in_valid_i         ,
   input  logic                                             y_in_valid_i       ,
   output logic                                             in_ready_o         ,
   input  logic                                             reg_enable_i       ,
-  input  logic                                             flush_i            ,
-  input  logic                                             iteration_change_i , // This signal is used to flush the registers
-
-  output fpnew_pkg::status_t      [W-1:0][H-1:0]           status_o           ,
-  output logic                    [W-1:0][H-1:0]           extension_bit_o    , // always 1
-  output fpnew_pkg::classmask_e   [W-1:0][H-1:0]           class_mask_o       ,
-  output logic                    [W-1:0][H-1:0]           is_class_o         ,
-  output TagType                  [W-1:0][H-1:0]           tag_o              , // always 0
-  output AuxType                  [W-1:0][H-1:0]           aux_o              , // always 0
 
   output logic                                             out_valid_o        ,
   input  logic                                             out_ready_i        ,
 
 
-  input logic                                              single_iteration_i, 
   input logic                                              last_iteration_i,
   input logic                                              start_i,    
   output logic                                             accumulation_reg_y_ready_o,    
-  output logic                                             accumulation_reg_full_first_o, 
 
-  output logic                                             busy_o             ,
   input  cntrl_engine_t                                    cntrl_engine_i  // This include the mode (idle, load, compute, read) and the row_index
 );
 
@@ -152,7 +127,6 @@ module ope_engine
 
     change_state                  = 1'b0;
     out_valid_o                   = 1'b0;
-    accumulation_reg_full_first_o = 1'b0;
     accumulation_reg_y_ready_o    = 1'b0;
     y_bias_selector               = 1'b0;
     acc_input_selector            = 1'b0;
@@ -180,7 +154,6 @@ module ope_engine
           change_state        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
         end
         external_loading              = 1'b1        ;
-        accumulation_reg_full_first_o = change_state;
         accumulation_reg_y_ready_o    = 1'b1        ;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
@@ -344,8 +317,8 @@ module ope_engine
         ) i_acc_reg (
           .clk_i              ( clk_i                                                ),
           .rst_ni             ( rst_ni                                               ),
-          .flush_i            ( flush_i                                              ),
-          .iteration_change_i ( iteration_change_i                                   ),     
+          .flush_i            ( 1'b0                                                 ),
+          .iteration_change_i ( 1'b0                                                 ),     
           .input_i            ( acc_in_data[row_index][col_index]                    ),         
           .write_en_i         ( acc_in_valid[row_index][col_index]                   ),
           .write_index_i      ( acc_write_index                                      ),
@@ -361,27 +334,16 @@ module ope_engine
   /* |                      Computing Elements                   | */
   /*---------------------------------------------------------------*/
 
-  // ******** Output signals ********
-  // The output signals are not used in the current implementation.
-  logic [Height-1:0][Width-1:0]           busy;
-
-  assign extension_bit_o = 'b0;
-  assign tag_o           = 'b0;
-  assign aux_o           = 'b0;
-  assign status_o        = 'b0;
-  assign busy_o          =  busy[0][0];
-  assign class_mask_o    = 'b0;
-  assign is_class_o      = 'b0;
-
   // ******** Compute Engine 2D array ********
 
   logic ce_clk_en;
   logic ce_clk;
+  logic [H-1:0][W-1:0] busy;
   always_comb begin : clock_gating_selector
     ce_clk_en            = 1'b0;
     if (in_valid_i || busy[0][0]) ce_clk_en = 1'b1;
   end : clock_gating_selector
-
+  
   tc_clk_gating ce_clock_gating (
     .clk_i      ( clk_i     ),
     .en_i       ( ce_clk_en ),
@@ -392,8 +354,10 @@ module ope_engine
   logic [H-1:0][W-1:0][2:0][BITW-1:0] ce_operands;
   logic [H-1:0][W-1:0]                ce_in_ready;
   logic [H-1:0][W-1:0][BITW-1:0]      acc_operand;
+  logic same_fmt;
 
   always_comb begin 
+    same_fmt         = (cntrl_engine_i.memory_format == cntrl_engine_i.computing_format)? 1'b1 : 1'b0;
     for (int row_index = 0; row_index < Height; row_index++) begin 
       for (int col_index = 0; col_index < Width; col_index++) begin 
         acc_operand[row_index][col_index]    = reg_out_data[row_index][col_index][z_read_reg_index_q[0]*BITW +: BITW];
@@ -417,18 +381,18 @@ module ope_engine
         .x_input_i          ( ce_operands[row_index][col_index][0]            ),
         .w_input_i          ( ce_operands[row_index][col_index][1]            ),
         .y_bias_i           ( ce_operands[row_index][col_index][2]            ),
-        .fma_is_boxed_i     ( fma_is_boxed_i                                  ),
+        .fma_is_boxed_i     ( cntrl_engine_i.fma_is_boxed                     ),
         .noncomp_is_boxed_i ( 2'b11                                           ),
-        .stage1_rnd_i       ( stage1_rnd_i                                    ),
-        .stage2_rnd_i       ( stage2_rnd_i                                    ),
-        .op1_i              ( op1_i                                           ),
-        .op2_i              ( op2_i                                           ),
-        .memory_fmt_i       ( memory_fmt_i                                    ),
-        .computing_fmt_i    ( computing_fmt_i                                 ),
-        .same_fmt_i         ( same_fmt_i                                      ),
-        .op_mod_i           ( op_mod_i                                        ),
-        .tag_i              ( tag_i                                           ),
-        .aux_i              ( aux_i                                           ),
+        .stage1_rnd_i       ( cntrl_engine_i.stage1_rnd                       ),
+        .stage2_rnd_i       ( cntrl_engine_i.stage2_rnd                       ),
+        .op1_i              ( cntrl_engine_i.op1                              ),
+        .op2_i              ( cntrl_engine_i.op2                              ),
+        .memory_fmt_i       ( cntrl_engine_i.memory_format                    ),
+        .computing_fmt_i    ( cntrl_engine_i.computing_format                 ),
+        .same_fmt_i         ( same_fmt                                        ),
+        .op_mod_i           ( cntrl_engine_i.op_mod                           ),
+        .tag_i              ( 1'b0                                            ),
+        .aux_i              ( 1'b0                                            ),
         .in_valid_i         ( in_valid_i  && in_ready_o                       ), 
         .in_ready_o         (                                                 ),
         .reg_enable_i       ( reg_enable_i                                    ),
@@ -447,4 +411,6 @@ module ope_engine
       end
     end
   endgenerate
+
+
 endmodule 
