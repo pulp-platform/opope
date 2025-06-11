@@ -306,7 +306,7 @@ module ope_ctrl
     // -----------------------------------------------------------------------------------------------------------
       STREAMER_Y  : streamer_next = streamer_change_state                     ? STREAMER_XWY : streamer_current;
     // -----------------------------------------------------------------------------------------------------------
-      STREAMER_XWY: streamer_next = streamer_change_state                     ? STREAMER_XWM : streamer_current;
+      STREAMER_XWY: streamer_next = streamer_change_state | last_iteration_q  ? STREAMER_XWM : streamer_current;
     // -----------------------------------------------------------------------------------------------------------
       STREAMER_XWZ: streamer_next = streamer_change_state && last_iteration_q ? STREAMER_XWM :
                                     streamer_change_state                     ? STREAMER_XWY : streamer_current;
@@ -343,6 +343,7 @@ module ope_ctrl
         y_counter_d           = y_counter_q + y_granted;
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
         priority_counter_d    = priority_counter_q + grant;
+        done_d                = last_iteration_q;
       end
       STREAMER_XWM: begin
         extra_d               = extra_q + y_granted;
@@ -500,7 +501,8 @@ module ope_ctrl
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Y_READ                : acc_state_next = acc_change_state                     ? ACC_LOAD_ENGINE           : ACC_Y_READ               ;
     // -------------------------------------------------------------------------------------------------------------------------------------
-      ACC_LOAD_ENGINE           : acc_state_next = acc_change_state                     ? ACC_Y_READ_ENGINE_RUNNING : ACC_LOAD_ENGINE          ;
+      ACC_LOAD_ENGINE           : acc_state_next = acc_change_state && last_iteration_q ? ACC_ENGINE_RUNNING        :
+                                                   acc_change_state                     ? ACC_Y_READ_ENGINE_RUNNING : ACC_LOAD_ENGINE          ;
     // -------------------------------------------------------------------------------------------------------------------------------------       
       ACC_Y_READ_ENGINE_RUNNING : acc_state_next = acc_change_state                     ? ACC_Z_RELOAD_Y_ENGINE     : ACC_Y_READ_ENGINE_RUNNING;
     // -------------------------------------------------------------------------------------------------------------------------------------

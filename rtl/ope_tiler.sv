@@ -21,6 +21,9 @@ module ope_tiler
 
 logic clk_en;
 logic clk_int;
+logic shift;
+assign shift = (BITW==32 & reg_file_i.hwpe_params[MACFG][ 9: 7]==Float16) |
+               (BITW==16 & reg_file_i.hwpe_params[MACFG][ 9: 7]==Float8 );
 
 redmule_config_t config_d, config_q;
 
@@ -42,13 +45,14 @@ tc_clk_gating i_tiler_clockg (
   .test_en_i  ( '0      ),
   .clk_o      ( clk_int )
 );
+  // typedef enum logic [2:0] { Float8=3'h0, Float16=3'h1, Float8Alt=3'h2, Float16Alt=3'h3, Float32=3'h4 } gemm_fmt_e;
 
 assign config_d.x_addr          = reg_file_i.hwpe_params[X_ADDR];
 assign config_d.w_addr          = reg_file_i.hwpe_params[W_ADDR];
 assign config_d.z_addr          = reg_file_i.hwpe_params[Z_ADDR];
 assign config_d.m_size          = reg_file_i.hwpe_params[MCFIG0][15: 0];
 assign config_d.k_size          = reg_file_i.hwpe_params[MCFIG0][31:16];
-assign config_d.n_size          = reg_file_i.hwpe_params[MCFIG1][15: 0];
+assign config_d.n_size          = reg_file_i.hwpe_params[MCFIG1][15: 0] >> shift;
 // assign config_d.gemm_ops        = gemm_op_e' (reg_file_i.hwpe_params[MACFG][12:10]);
 assign config_d.gemm_ops        = gemm_op_e' (reg_file_i.hwpe_params[MACFG][12:10]);
 assign config_d.gemm_memory_fmt     = gemm_fmt_e'(reg_file_i.hwpe_params[MACFG][ 9: 7]);    // Memory Format
