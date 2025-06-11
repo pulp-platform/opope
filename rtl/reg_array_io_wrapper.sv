@@ -14,14 +14,12 @@ module reg_array_io_wrapper
   input  logic                         clk_i, 
   input  logic                         rst_ni,
   input  logic                         clear_i,
-  input  logic                         iteration_change_i,
   input  logic                         ready_i, 
   input  logic [DATA_WIDTH-1:0]        data_i,
   input  logic                         valid_i,
   output logic                         ready_o,
   output logic [DATA_WIDTH/DEPTH-1:0]  data_o, 
-  output logic                         valid_o,
-  output logic                         not_empty_o
+  output logic                         valid_o
 );
 
   logic [DEPTH-1:0][DATA_WIDTH/DEPTH-1:0] reg_d, reg_q;
@@ -64,7 +62,7 @@ module reg_array_io_wrapper
       reg_valid_q           <= 'b0;
       reg_q                 <= 'b0;
     end else begin 
-      if (clear_i || iteration_change_i) begin
+      if (clear_i) begin
         reading_counter_q     <= 'b0;
         reg_valid_q           <= 'b0;
         reg_q                 <= 'b0;

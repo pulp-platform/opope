@@ -35,6 +35,7 @@ sources:
     - rtl/ope_sdotp_wrapper.sv
     - rtl/ope_sdotp.sv
     - rtl/ope_streamer.sv
+    - rtl/ope_buffers.sv
     - rtl/ope_tiler.sv
     - rtl/ope_top.sv
 

@@ -83,11 +83,17 @@ logic [$clog2(REG_PER_CE)-1:0]  reg_write_to_engine;
 logic y_bias_selector; 
 logic acc_input_selector;
 logic external_loading;
+logic y_valid;
 
 logic priority_enforcer_enable;
-logic reg_to_engine_valid;
-logic x_reg_to_engine_valid, w_reg_to_engine_valid;
-logic [DATAW/2 - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
+logic in_valid;
+logic [DATAW/2 - 1: 0] x_data, w_data;
+logic [DATAW   - 1: 0] y_data, z_data;
+
+hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) x_buffer         ( .clk( clk_i ) );
+hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) w_buffer         ( .clk( clk_i ) );
+hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) y_buffer         ( .clk( clk_i ) );
+hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk( clk_i ) );
 
 /*--------------------------------------------------------------*/
 /* |                   Start Configuration                    | */
@@ -126,24 +132,10 @@ logic [DATAW/2 - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
   );
 
 `endif
+
 /*--------------------------------------------------------------*/
 /* |                         Streamer                         | */
 /*--------------------------------------------------------------*/
-
-// Implementation of the incoming and outgoing streaming interfaces (one for each kind of data)
-
-// X streaming interface
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) x_buffer_d         ( .clk( clk_i ) );
-
-// W streaming interface
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) w_buffer_d         ( .clk( clk_i ) );
-
-// Y streaming interface
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) y_buffer_d         ( .clk( clk_i ) );
-
-// Z streaming interface
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer_q         ( .clk( clk_i ) );
-
 
 // The streamer will present a single master TCDM port used to stream data to and from the memeory.
 ope_streamer #(
@@ -157,11 +149,11 @@ ope_streamer #(
   .enable_i                 ( 1'b1                  ),
   .clear_i                  ( clear                 ),
   // Source interfaces for the incoming streams
-  .x_stream_o               ( x_buffer_d            ),
-  .w_stream_o               ( w_buffer_d            ),
-  .y_stream_o               ( y_buffer_d            ),
+  .x_stream_o               ( x_buffer              ),
+  .w_stream_o               ( w_buffer              ),
+  .y_stream_o               ( y_buffer              ),
   // Sink interface for the outgoing stream
-  .z_stream_i               ( z_buffer_q),
+  .z_stream_i               ( z_buffer              ),
   // Master TCDM interface ports for the memory side
   .tcdm                     ( tcdm                  ),
   .custom_priority_force_i  ( custom_priority_force ),
@@ -177,54 +169,40 @@ ope_streamer #(
 
 
 /*---------------------------------------------------------------*/
-/* |                      INPUT_REGISTERS                      | */
+/* |                       Input Buffers                       | */
 /*---------------------------------------------------------------*/
 
-assign reg_to_engine_valid = x_reg_to_engine_valid && w_reg_to_engine_valid;
-assign w_buffer_d.ready = w_ready;
-assign x_buffer_d.ready = x_ready;
-assign y_buffer_d.ready = y_ready &~ mask_streamer;
-assign z_buffer_q.strb = {{DATAW_ALIGN/8{1'b1}}};
-assign z_buffer_q.valid = z_valid &~ mask_z;
-
-reg_array_io_wrapper #(
-  .READING_POLICY   ( ope_pkg::SERIALLY ),
-  .DATA_WIDTH       (DATAW),
-  .DEPTH            (X_REGBUFFER_DEPTH)
-) i_x_reg_array_wrapper(
-  .clk_i              ( clk_i                       ),
-  .rst_ni             ( rst_ni                      ),
-  .clear_i            ( clear                       ),
-  .iteration_change_i (1'b0),
-  .ready_i            (in_ready  ),
-  .data_i             ( x_buffer_d.data          ),
-  .valid_i            ( x_buffer_d.valid         ),
-  .ready_o            ( x_ready                  ),
-  .data_o             ( x_reg_to_engine_data),
-  .valid_o            (x_reg_to_engine_valid),
-  .not_empty_o        ( )
-);
-
-reg_array_io_wrapper #(
+ope_buffers #(
   .READING_POLICY   ( ope_pkg::INTERLEAVED ),
   .DATA_WIDTH       (DATAW),
   .DEPTH            (W_REGBUFFER_DEPTH)
-) i_w_reg_array_wrapper(
-  .clk_i              ( clk_i                       ),
-  .rst_ni             ( rst_ni                      ),
-  .clear_i            ( clear                       ),
-  .iteration_change_i (1'b0),
-  .ready_i            ( in_ready                   ), // When both the x and w buffer are not empty
-  .data_i             ( w_buffer_d.data          ),
-  .valid_i            ( w_buffer_d.valid         ),
-  .ready_o            ( w_ready         ),
-  .data_o             (w_reg_to_engine_data                ),
-  .valid_o            (w_reg_to_engine_valid),
-  .not_empty_o        (        )     
+) i_buffers (
+  .clk_i       ( clk_i         ),
+  .rst_ni      ( rst_ni        ),
+  .clear_i     ( clear         ),
+  
+  // From/To Streamer 
+  .x_stream_i  ( x_buffer      ),
+  .w_stream_i  ( w_buffer      ),
+  .y_stream_i  ( y_buffer      ),
+  .z_stream_o  ( z_buffer      ),
+
+  // Engine
+  .in_ready_i  ( in_ready      ),
+  .in_valid_o  ( in_valid      ),
+  .x_data_o    ( x_data        ),
+  .w_data_o    ( w_data        ),
+
+  .y_ready_i   ( y_ready       ),
+  .mask_y_i    ( mask_streamer ),
+  .y_valid_o   ( y_valid       ),
+  .y_data_o    ( y_data        ),
+
+  .z_ready_o   ( z_ready       ),
+  .mask_z_i    ( mask_z        ),
+  .z_valid_i   ( z_valid       ),
+  .z_data_i    ( z_data        ) 
 );
-
-
-
 
 /*---------------------------------------------------------------*/
 /* |                          Engine                           | */
@@ -249,10 +227,10 @@ ope_engine     #(
 ) i_ope_engine (
   .clk_i              ( clk_i           ),
   .rst_ni             ( rst_ni           ),
-  .x_input_i          ( x_reg_to_engine_data       ),
-  .w_input_i          ( w_reg_to_engine_data       ),
-  .y_bias_i           ( y_buffer_d.data),
-  .z_output_o         (z_buffer_q.data),
+  .x_input_i          ( x_data       ),
+  .w_input_i          ( w_data       ),
+  .y_bias_i           ( y_data),
+  .z_output_o         ( z_data),
    
    // From controller
   .reg_enable_i       ( priority_enforcer_enable ),
@@ -266,8 +244,8 @@ ope_engine     #(
   .external_loading_i    (external_loading),
 
   // From reg_io_wrapper
-  .in_valid_i         ( reg_to_engine_valid         ),
-  .y_in_valid_i       ( y_buffer_d.valid & y_buffer_d.ready),
+  .in_valid_i         ( in_valid         ),
+  .y_in_valid_i       ( y_valid),
   .in_ready_i         ( in_ready         ),
 
   // Memory Scheduler
@@ -311,9 +289,9 @@ ope_ctrl        #(
   .flgs_streamer_i   ( flgs_streamer       ),
   .cntrl_streamer_o  ( cntrl_streamer      ),
 
-  .in_valid_i         ( reg_to_engine_valid         ),
-  .y_in_valid_i       ( y_buffer_d.valid & y_buffer_d.ready),
-  .out_ready_i        ( z_buffer_q.ready &~ mask_z),
+  .in_valid_i         ( in_valid         ),
+  .y_in_valid_i       ( y_valid),
+  .out_ready_i        ( z_ready),
   .accumulation_reg_y_ready_o (y_ready),
   .out_valid_o        ( z_valid),
   .in_ready_o         ( in_ready         ),
