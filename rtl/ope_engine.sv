@@ -123,8 +123,6 @@ module ope_engine
     prefetched_d          = prefetched_q         ;
     done_d                = done_q               ;
 
-    // last_iteration_d      = last_iteration_i | last_iteration_q;
-
     change_state                  = 1'b0;
     out_valid_o                   = 1'b0;
     accumulation_reg_y_ready_o    = 1'b0;
@@ -200,22 +198,18 @@ module ope_engine
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD_Y_ENGINE: begin // Storing the z values to acc, reload the y values to the engine
         if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_i.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
-        if (engine_to_reg_out_valid[0][0]) begin
-          z_read_reg_index_d    = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
-          reg_write_to_engine_d = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
-          change_state = (z_read_reg_index_q == REG_PER_CE - 1);
-        end
+        z_read_reg_index_d         = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
+        reg_write_to_engine_d      = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
+        change_state               = (z_read_reg_index_q == REG_PER_CE - 1);
         acc_input_selector         = 1'b1;
         y_bias_selector            = 1'b1;
         in_ready_o                 = 1'b1;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD: begin // Storing the z values to acc
-        if (engine_to_reg_out_valid[0][0]) begin
-          z_read_reg_index_d    = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
-          reg_write_to_engine_d = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
-          change_state = (z_read_reg_index_q == REG_PER_CE - 1);
-        end
+        z_read_reg_index_d    = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
+        reg_write_to_engine_d = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
+        change_state = (z_read_reg_index_q == REG_PER_CE - 1);
         acc_input_selector         = 1'b1;
         done_d                     = 1'b1;
       end
@@ -229,15 +223,6 @@ module ope_engine
           z_read_row_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? (z_read_row_index_q == Height - 1) ? 'b0: z_read_row_index_q + 1: z_read_row_index_q;
           change_state       = (z_read_row_index_q == Height - 1 && z_read_reg_index_q == REG_PER_CE - 2); // This need to change
         end
-        // if (change_state && done_q) begin
-        //   done_d                = '0;
-        //   y_write_reg_index_d   = '0;
-        //   y_write_row_index_d   = '0;
-        //   z_read_reg_index_d    = '0;
-        //   inner_loop_counter_d  = '0;
-        //   reg_write_to_engine_d = '0;
-        //   prefetched_d          = '0;
-        // end
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
     endcase
