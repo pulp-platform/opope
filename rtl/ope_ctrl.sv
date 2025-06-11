@@ -11,18 +11,12 @@ module ope_ctrl
   import ope_pkg::*;
   import hwpe_ctrl_package::*;
 #(
-  parameter  int unsigned N_CORES       = 8                      ,
-  parameter  int unsigned IO_REGS       = REDMULE_REGS           ,
-  parameter  int unsigned ID_WIDTH      = 8                      ,
-  parameter  int unsigned SysDataWidth  = 32                     ,
-  parameter  int unsigned N_CONTEXT     = 2                      ,
-  parameter  int unsigned Height        = 4                      ,
-  parameter  int unsigned Width         = 8                      ,
-  parameter  int unsigned NumPipeRegs   = 3                      ,
-  localparam int unsigned TILE          = (NumPipeRegs +1)*Height,
-  parameter int unsigned   W    = ARRAY_WIDTH,
-  parameter int unsigned   H    = ARRAY_HEIGHT,
-  parameter int unsigned NSS            = NumStreamSources
+  parameter  int unsigned N_CORES       = 8            ,
+  parameter  int unsigned IO_REGS       = REDMULE_REGS ,
+  parameter  int unsigned ID_WIDTH      = 8            ,
+  parameter  int unsigned N_CONTEXT     = 2            ,
+  parameter  int unsigned Height        = 4            ,
+  parameter  int unsigned Width         = 8            
 )(
   input  logic                    clk_i             ,
   input  logic                    rst_ni            ,
@@ -31,8 +25,6 @@ module ope_ctrl
   output logic [N_CORES-1:0][1:0] evt_o             ,
   input  logic                    start_cfg_i       ,
   output logic                    cfg_complete_o    ,
-  // Control signals for the engine
-  output logic                    priority_enforcer_enable_o,
   // Control signals for the state machine
   output cntrl_engine_t           cntrl_engine_o    ,
   
@@ -48,17 +40,9 @@ module ope_ctrl
   input  logic       in_valid_i         ,
   input  logic       y_in_valid_i       ,
   input  logic       out_ready_i        ,
-  output logic       accumulation_reg_y_ready_o,  
+  output logic       y_ready_o,  
   output logic       out_valid_o        ,
   output logic       in_ready_o         , 
-  output logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index_o,
-  output logic [$clog2(Height)-1:0]     y_write_row_index_o,
-  output logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index_o,
-  output logic [$clog2(Height)-1:0]     z_read_row_index_o,
-  output logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine_o,
-  output logic y_bias_selector_o     ,
-  output logic acc_input_selector_o  ,
-  output logic external_loading_o    ,
   output logic ce_clk_en_o       ,
   
   // Peripheral slave port
@@ -153,6 +137,7 @@ module ope_ctrl
   logic acc_input_selector;
   logic external_loading;
   logic acc_done_d,acc_done_q;
+  logic ce_enable;
 
 
   /*---------------------------------------------------------------------------------------------*/
@@ -225,10 +210,20 @@ module ope_ctrl
   assign cntrl_engine_o.memory_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
   assign cntrl_engine_o.inner_loop_count = (reg_file_q.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
   assign cntrl_engine_o.computing_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
-  // FIXME: because the store waits for the address gen to finish, the data that are read are 2 cycles more (power consumption)
-  // Maybe find a better way to do this
   assign cntrl_engine_o.mode =  cntrl_engine_mode_e'(IDLE);
-  assign cntrl_engine_o.iteration_change = 1'b0;
+  assign cntrl_engine_o.iteration_change    = 1'b0;
+  assign cntrl_engine_o.y_write_reg_index   = y_write_reg_index_q;
+  assign cntrl_engine_o.y_write_row_index   = y_write_row_index_q;
+  assign cntrl_engine_o.z_read_reg_index    = z_read_reg_index_q ;
+  assign cntrl_engine_o.z_read_row_index    = z_read_row_index_q ;
+  assign cntrl_engine_o.reg_write_to_engine = reg_write_to_engine_q;
+  assign cntrl_engine_o.y_bias_selector     = y_bias_selector    ;
+  assign cntrl_engine_o.acc_input_selector  = acc_input_selector ;
+  assign cntrl_engine_o.external_loading    = external_loading   ;
+  assign cntrl_engine_o.in_valid            = in_valid_i  ;
+  assign cntrl_engine_o.y_in_valid          = y_in_valid_i;
+  assign cntrl_engine_o.in_ready            = in_ready_o;
+  assign cntrl_engine_o.reg_enable          = ce_enable;
   
   /*---------------------------------------------------------------------------------------------*/
   /*                                        Controller FSM                                       */
@@ -256,7 +251,7 @@ module ope_ctrl
     latch_clear                     = 1'b0;
     cntrl_slave.done                = 1'b0;
     busy_o                          = 1'b1;
-    priority_enforcer_enable_o      = 1'b0;
+    ce_enable      = 1'b0;
     cntrl_scheduler.rst           = 1'b0;
     cntrl_scheduler.finished      = 1'b0;
     cntrl_scheduler.start_load_w  = 1'b0;
@@ -286,7 +281,7 @@ module ope_ctrl
       end
       OPE_COMPUTING: begin
         change_state                = finished;
-        priority_enforcer_enable_o  = 1'b1;
+        ce_enable  = 1'b1;
       end
       OPE_FINISHED : begin
         cntrl_slave.done           = 1'b1;
@@ -423,8 +418,8 @@ module ope_ctrl
   /*                                       Memory Scheduler                                      */
   /*---------------------------------------------------------------------------------------------*/
 
-  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] * X_REGBUFFER_DEPTH  / (W*W_REGBUFFER_DEPTH * H*X_REGBUFFER_DEPTH) / 2;
-  assign total_len_y_z = W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH * H * reg_file_q.hwpe_params[K_M] / (W*W_REGBUFFER_DEPTH*H*X_REGBUFFER_DEPTH) / 2;
+  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] * X_REGBUFFER_DEPTH  / (Width*W_REGBUFFER_DEPTH * Height*X_REGBUFFER_DEPTH) / 2;
+  assign total_len_y_z = W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH * Height * reg_file_q.hwpe_params[K_M] / (Width*W_REGBUFFER_DEPTH*Height*X_REGBUFFER_DEPTH) / 2;
 
   always_comb begin : address_gen_signals
     // Here we initialize the streamer source signals
@@ -434,10 +429,10 @@ module ope_ctrl
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[M_SIZE] * (BITW/8);
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_stride     = 'b0;
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_stride     = H * X_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_stride     = Height * X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
 
@@ -447,9 +442,9 @@ module ope_ctrl
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
-    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
-    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_stride     = W * W_REGBUFFER_DEPTH * (BITW/8);
-    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_stride     = Width * W_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_stride     = 'b0;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
@@ -457,24 +452,24 @@ module ope_ctrl
     // Here we initialize the streamer source signals
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.base_addr     = reg_file_q.hwpe_params[Z_ADDR];
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_y_z;
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_len        = 2 * H;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_len        = 2 * Height;
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_stride     = (BITW/8) * H * W_REGBUFFER_DEPTH;
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_stride     = reg_file_q.hwpe_params[K_SIZE] * H*X_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_stride     = (BITW/8) * Height * W_REGBUFFER_DEPTH;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_stride     = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
 
     // Here we initialize the streamer sink signals for
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.base_addr       = reg_file_q.hwpe_params[Z_ADDR];
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.tot_len         = total_len_y_z;
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_len          = 2 * H;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_len          = 2 * Height;
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_stride       = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_len          = reg_file_q.hwpe_params[K_SIZE] / (W*W_REGBUFFER_DEPTH);
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_stride       = (BITW/8) * H * W_REGBUFFER_DEPTH;
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_len          = reg_file_q.hwpe_params[M_SIZE] / (H*X_REGBUFFER_DEPTH);
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_stride       = reg_file_q.hwpe_params[K_SIZE] * H*X_REGBUFFER_DEPTH * (BITW/8);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_len          = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_stride       = (BITW/8) * Height * W_REGBUFFER_DEPTH;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_len          = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_stride       = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d3_stride       = 'b0;
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.dim_enable_1h   = 3'b111;
   end
@@ -540,14 +535,14 @@ module ope_ctrl
     external_loading              = 1'b0;
     in_ready_o                    = 1'b0;
     out_valid_o                   = 1'b0;
-    accumulation_reg_y_ready_o    = 1'b0;
+    y_ready_o    = 1'b0;
     ce_clk_en_o                   = 1'b1;
 
     case (acc_state_current)
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_IDLE: begin
         acc_change_state           = cntrl_scheduler.start_load_x;
-        accumulation_reg_y_ready_o = acc_change_state;
+        y_ready_o = acc_change_state;
         acc_done_d                 = '0;
         y_write_reg_index_d        = '0;
         y_write_row_index_d        = '0;
@@ -565,7 +560,7 @@ module ope_ctrl
           acc_change_state        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
         end
         external_loading              = 1'b1        ;
-        accumulation_reg_y_ready_o    = 1'b1        ;
+        y_ready_o    = 1'b1        ;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_LOAD_ENGINE: begin
@@ -579,7 +574,7 @@ module ope_ctrl
           y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
         end
-        accumulation_reg_y_ready_o = 1'b1;
+        y_ready_o = 1'b1;
         external_loading           = 1'b1;
         y_bias_selector            = 1'b1;
         in_ready_o                 = 1'b1;
@@ -596,7 +591,7 @@ module ope_ctrl
           acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
         end
         if (prefetched_q == 1'b1 && acc_state_current == ACC_Y_READ_ENGINE_RUNNING && acc_state_next == ACC_Z_RELOAD_Y_ENGINE) prefetched_d = 1'b0; // Reloaded value completed
-        accumulation_reg_y_ready_o = ~(prefetched_q ); //~acc_change_state;
+        y_ready_o = ~(prefetched_q ); //~acc_change_state;
         in_ready_o                 = 1'b1;
         external_loading           = ~(prefetched_q );
       end
@@ -667,15 +662,6 @@ module ope_ctrl
     end
   end
 
-
-  assign y_write_reg_index_o   = y_write_reg_index_q;
-  assign y_write_row_index_o   = y_write_row_index_q;
-  assign z_read_reg_index_o    = z_read_reg_index_q ;
-  assign z_read_row_index_o    = z_read_row_index_q ;
-  assign reg_write_to_engine_o = reg_write_to_engine_q;
-  assign y_bias_selector_o     = y_bias_selector    ;
-  assign acc_input_selector_o  = acc_input_selector ;
-  assign external_loading_o    = external_loading   ;
 
   /*---------------------------------------------------------------------------------------------*/
   /*                            Other combinational assigmnets                                   */

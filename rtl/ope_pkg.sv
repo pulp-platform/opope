@@ -319,15 +319,21 @@ package ope_pkg;
     fpu_fmt_e                     memory_format;
     fpu_fmt_e                     computing_format;
     logic                         op_mod;
-    logic                         in_valid;
-    logic                         flush;
-    logic                         out_ready;
-    logic                         accumulate;
-    logic       [ARRAY_WIDTH-1:0] row_clk_gate_en;
     cntrl_engine_mode_e           mode;
-    logic       [$clog2(ARRAY_HEIGHT) - 1: 0] row_index;
     logic      iteration_change;
     logic      [31:0] inner_loop_count;
+    logic       in_valid         ;
+    logic       y_in_valid       ;
+    logic       in_ready         ;
+    logic       reg_enable       ;
+    logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index;
+    logic [$clog2(ARRAY_HEIGHT)-1:0]     y_write_row_index;
+    logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index ;
+    logic [$clog2(ARRAY_HEIGHT)-1:0]     z_read_row_index ;
+    logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine;
+    logic y_bias_selector     ;
+    logic acc_input_selector  ;
+    logic external_loading    ;
   } cntrl_engine_t;
 
   typedef enum {

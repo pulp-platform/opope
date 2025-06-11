@@ -28,18 +28,6 @@ module ope_engine
   input  logic                    [2*W-1:0][BITW-1:0]      y_bias_i           , // Row of biases
   output logic                    [2*W-1:0][BITW-1:0]      z_output_o         , // Row of outputs
 
-  input  logic                                             in_valid_i         ,
-  input  logic                                             y_in_valid_i       ,
-  input  logic                                             in_ready_i         ,
-  input  logic                                             reg_enable_i       ,
-  input  logic [$clog2(REG_PER_CE)-1:0] y_write_reg_index_i,
-  input  logic [$clog2(Height)-1:0] y_write_row_index_i,
-  input logic [$clog2(REG_PER_CE)-1:0] z_read_reg_index_i,
-  input logic [$clog2(Height)-1:0] z_read_row_index_i,
-  input logic [$clog2(REG_PER_CE)-1:0] reg_write_to_engine_i,
-  input logic y_bias_selector_i     ,
-  input logic acc_input_selector_i  ,
-  input logic external_loading_i    ,
   input  cntrl_engine_t                                    cntrl_engine_i  // This include the mode (idle, load, compute, read) and the row_index
 );
 
@@ -63,14 +51,14 @@ module ope_engine
   always_comb begin 
     for (int row_index = 0; row_index < Height; row_index++) begin
       for (int col_index = 0; col_index < Width; col_index++) begin
-        if (acc_input_selector_i) begin // Load from the engine
+        if (cntrl_engine_i.acc_input_selector) begin // Load from the engine
           acc_in_valid[row_index][col_index] = engine_to_reg_out_valid[row_index][col_index];
           acc_in_data[row_index][col_index]  = {engine_to_reg_output[row_index][col_index],engine_to_reg_output[row_index][col_index]};
-          acc_write_index                    = reg_write_to_engine_i;
+          acc_write_index                    = cntrl_engine_i.reg_write_to_engine;
         end else begin // Load from external
-          acc_in_valid[row_index][col_index] = y_in_valid_i && (row_index == y_write_row_index_i) && external_loading_i;
+          acc_in_valid[row_index][col_index] = cntrl_engine_i.y_in_valid && (row_index == cntrl_engine_i.y_write_row_index) && cntrl_engine_i.external_loading;
           acc_in_data[row_index][col_index]  = {y_bias_i[2*col_index+1],y_bias_i[2*col_index]};
-          acc_write_index                    = y_write_reg_index_i;
+          acc_write_index                    = cntrl_engine_i.y_write_reg_index;
         end
       end
     end
@@ -82,8 +70,8 @@ module ope_engine
 
   always_comb begin
     for (int col_index = 0; col_index < Width; col_index++) begin
-      z_output_o[2*col_index  ] = reg_out_data[z_read_row_index_i][col_index][  BITW-1:0   ];
-      z_output_o[2*col_index+1] = reg_out_data[z_read_row_index_i][col_index][2*BITW-1:BITW];
+      z_output_o[2*col_index  ] = reg_out_data[cntrl_engine_i.z_read_row_index][col_index][  BITW-1:0   ];
+      z_output_o[2*col_index+1] = reg_out_data[cntrl_engine_i.z_read_row_index][col_index][2*BITW-1:BITW];
     end
   end
 
@@ -105,8 +93,8 @@ module ope_engine
           .input_i            ( acc_in_data[row_index][col_index]                    ),         
           .write_en_i         ( acc_in_valid[row_index][col_index]                   ),
           .write_index_i      ( acc_write_index                                      ),
-          .external_loading   ( external_loading_i                                     ),
-          .read_index_i       ( z_read_reg_index_i                                   ),
+          .external_loading   ( cntrl_engine_i.external_loading                                     ),
+          .read_index_i       ( cntrl_engine_i.z_read_reg_index                                   ),
           .output_o           ( reg_out_data[row_index][col_index]                   )        
         );
       end
@@ -122,7 +110,7 @@ module ope_engine
   logic [H-1:0][W-1:0] busy;
   always_comb begin : clock_gating_selector
     ce_clk_en            = 1'b0;
-    if (in_valid_i || busy[0][0]) ce_clk_en = 1'b1;
+    if (cntrl_engine_i.in_valid || busy[0][0]) ce_clk_en = 1'b1;
   end : clock_gating_selector
   
   tc_clk_gating ce_clock_gating (
@@ -140,10 +128,10 @@ module ope_engine
     same_fmt         = (cntrl_engine_i.memory_format == cntrl_engine_i.computing_format)? 1'b1 : 1'b0;
     for (int row_index = 0; row_index < Height; row_index++) begin 
       for (int col_index = 0; col_index < Width; col_index++) begin 
-        acc_operand[row_index][col_index]    = reg_out_data[row_index][col_index][z_read_reg_index_i[0]*BITW +: BITW];
+        acc_operand[row_index][col_index]    = reg_out_data[row_index][col_index][cntrl_engine_i.z_read_reg_index[0]*BITW +: BITW];
         ce_operands[row_index][col_index][0] = x_input_i[row_index];
         ce_operands[row_index][col_index][1] = w_input_i[col_index];
-        ce_operands[row_index][col_index][2] = (y_bias_selector_i) ? acc_operand[row_index][col_index]: engine_to_reg_output[row_index][col_index] ;
+        ce_operands[row_index][col_index][2] = (cntrl_engine_i.y_bias_selector) ? acc_operand[row_index][col_index]: engine_to_reg_output[row_index][col_index] ;
       end
     end
   end
@@ -173,9 +161,9 @@ module ope_engine
         .op_mod_i           ( cntrl_engine_i.op_mod                           ),
         .tag_i              ( 1'b0                                            ),
         .aux_i              ( 1'b0                                            ),
-        .in_valid_i         ( in_valid_i  && in_ready_i                       ), 
+        .in_valid_i         ( cntrl_engine_i.in_valid  && cntrl_engine_i.in_ready                       ), 
         .in_ready_o         (                                                 ),
-        .reg_enable_i       ( reg_enable_i                                    ),
+        .reg_enable_i       ( cntrl_engine_i.reg_enable                                    ),
         .flush_i            ( 1'b0                                            ),
         .z_output_o         ( engine_to_reg_output[row_index][col_index]      ),
         .status_o           (                                                 ), // Not used 

@@ -66,21 +66,12 @@ flgs_scheduler_t  flgs_scheduler;
 
 
 logic mask_y, mask_z;
-logic x_ready,w_ready,y_ready,z_valid;
+logic y_ready,z_valid;
 
 
 logic                           in_ready;
-logic [$clog2(REG_PER_CE)-1:0]  y_write_reg_index;
-logic [$clog2(Height)-1:0]      y_write_row_index;
-logic [$clog2(REG_PER_CE)-1:0]  z_read_reg_index;
-logic [$clog2(Height)-1:0]      z_read_row_index;
-logic [$clog2(REG_PER_CE)-1:0]  reg_write_to_engine;
-logic y_bias_selector; 
-logic acc_input_selector;
-logic external_loading;
 logic y_valid;
 
-logic priority_enforcer_enable;
 logic in_valid;
 logic [DATAW/2 - 1: 0] x_data, w_data;
 logic [DATAW   - 1: 0] y_data, z_data;
@@ -214,31 +205,13 @@ ope_engine     #(
   .NumPipeRegs     ( NumPipeRegs   ),
   .PipeConfig      ( PipeConfig    )
 ) i_ope_engine (
-  .clk_i              ( clk_i           ),
-  .rst_ni             ( rst_ni           ),
+  .clk_i              ( clk_i        ),
+  .rst_ni             ( rst_ni       ),
   .x_input_i          ( x_data       ),
   .w_input_i          ( w_data       ),
-  .y_bias_i           ( y_data),
-  .z_output_o         ( z_data),
-   
-   // From controller
-  .reg_enable_i       ( priority_enforcer_enable ),
-  .y_write_reg_index_i(y_write_reg_index),
-  .y_write_row_index_i(y_write_row_index),
-  .z_read_reg_index_i(z_read_reg_index),
-  .z_read_row_index_i(z_read_row_index),
-  .reg_write_to_engine_i(reg_write_to_engine),
-  .y_bias_selector_i     (y_bias_selector),
-  .acc_input_selector_i  (acc_input_selector),
-  .external_loading_i    (external_loading),
-
-  // From reg_io_wrapper
-  .in_valid_i         ( in_valid         ),
-  .y_in_valid_i       ( y_valid),
-  .in_ready_i         ( in_ready         ),
-
-  // Memory Scheduler
-  .cntrl_engine_i     ( cntrl_engine     ) // Only inner loop count is used from this!
+  .y_bias_i           ( y_data       ),
+  .z_output_o         ( z_data       ),
+  .cntrl_engine_i     ( cntrl_engine ) 
 );
 
 /*---------------------------------------------------------------*/
@@ -246,47 +219,40 @@ ope_engine     #(
 /*---------------------------------------------------------------*/
 
 ope_ctrl        #(
-  .N_CORES            ( N_CORES                 ),
-  .IO_REGS            ( REDMULE_REGS            ),
-  .ID_WIDTH           ( ID_WIDTH                ),
-  .N_CONTEXT          ( NumContext              ),
-  .SysDataWidth       ( SysDataWidth            ),
-  .Height             ( Height                  ),
-  .Width              ( Width                   ),
-  .W  (Width),
-  .H  (Height),
-  .NumPipeRegs        ( NumPipeRegs             )
+  .N_CORES            ( N_CORES        ),
+  .IO_REGS            ( REDMULE_REGS   ),
+  .ID_WIDTH           ( ID_WIDTH       ),
+  .N_CONTEXT          ( NumContext     ),
+  .Height             ( Height         ),
+  .Width              ( Width          )
 ) i_control           (
-  .clk_i              ( clk_i                   ),
-  .rst_ni             ( rst_ni                  ),
-  .busy_o             ( busy_o                  ),
-  .clear_o            ( clear                   ),
-  .evt_o              ( evt_o                   ),
-  .start_cfg_i        ( start_cfg               ),
-  .cfg_complete_o     ( cfg_complete            ),
-  .priority_enforcer_enable_o (priority_enforcer_enable),
-  .cntrl_engine_o     ( cntrl_engine            ),
-  .mask_y_o            ( mask_y            ),
-  .mask_z_o                ( mask_z                   ),
-  .flgs_streamer_i   ( flgs_streamer       ),
-  .cntrl_streamer_o  ( cntrl_streamer      ),
+  .clk_i              ( clk_i          ),
+  .rst_ni             ( rst_ni         ),
+  .busy_o             ( busy_o         ),
+  .clear_o            ( clear          ),
+  .evt_o              ( evt_o          ),
+  .start_cfg_i        ( start_cfg      ),
+  .cfg_complete_o     ( cfg_complete   ),
+  .periph             ( periph         ),
 
-  .in_valid_i         ( in_valid         ),
-  .y_in_valid_i       ( y_valid),
-  .out_ready_i        ( z_ready),
-  .accumulation_reg_y_ready_o (y_ready),
-  .out_valid_o        ( z_valid),
-  .in_ready_o         ( in_ready         ),
-  .y_write_reg_index_o(y_write_reg_index),
-  .y_write_row_index_o(y_write_row_index),
-  .z_read_reg_index_o(z_read_reg_index),
-  .z_read_row_index_o(z_read_row_index),
-  .reg_write_to_engine_o(reg_write_to_engine),
-  .y_bias_selector_o     (y_bias_selector),
-  .acc_input_selector_o  (acc_input_selector),
-  .external_loading_o    (external_loading),
-  .ce_clk_en_o          (ce_clk_en),
-  .periph             ( periph                  )
+  // Buffers
+  .mask_y_o           ( mask_y         ),
+  .mask_z_o           ( mask_z         ),
+  .in_valid_i         ( in_valid       ),
+  .in_ready_o         ( in_ready       ),
+  .y_in_valid_i       ( y_valid        ),
+  .y_ready_o          ( y_ready        ),
+  .out_valid_o        ( z_valid        ),
+  .out_ready_i        ( z_ready        ),
+  
+  // Engine
+  .cntrl_engine_o     ( cntrl_engine   ),
+  .ce_clk_en_o        ( ce_clk_en      ),
+  
+  // Streamer
+  .flgs_streamer_i    ( flgs_streamer  ),
+  .cntrl_streamer_o   ( cntrl_streamer )
+
 );
 
 
