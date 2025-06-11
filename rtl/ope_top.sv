@@ -51,8 +51,7 @@ module ope_top
 
 localparam int unsigned DATAW_ALIGN = DATAW;
 
-logic                       enable, clear;
-logic                       reg_enable;
+logic                       clear;
 logic                       start_cfg, cfg_complete;
 
 `ifdef TARGET_REDMULE_HWPE
@@ -93,33 +92,14 @@ logic                       start_cfg, cfg_complete;
 // Streamer control signals and flags
 cntrl_streamer_t cntrl_streamer;
 flgs_streamer_t  flgs_streamer;
-// flgs_streamer_t  flgs_streamer_x_w;
-// flgs_streamer_t  flgs_streamer_y_z;
 
 cntrl_engine_t   cntrl_engine;
-
-// Wrapper control signals and flags
-// Input feature map
-x_buffer_ctrl_t x_buffer_ctrl;
-x_buffer_flgs_t x_buffer_flgs;
-
-// Weights
-w_buffer_ctrl_t w_buffer_ctrl;
-w_buffer_flgs_t w_buffer_flgs;
-
-// Output feature map
-z_buffer_ctrl_t z_buffer_ctrl;
-z_buffer_flgs_t z_buffer_flgs;
 
 // FSM control signals and flags
 cntrl_scheduler_t cntrl_scheduler;
 flgs_scheduler_t  flgs_scheduler;
 
 // Register file binded from controller to FSM
-ctrl_regfile_t reg_file;
-flags_fifo_t   w_fifo_flgs;
-
-x_regbuffer_ctrl_t x_regbuffer_ctrl;
 
 
 logic mask_streamer, mask_z;
@@ -132,23 +112,17 @@ logic last_iteration_d,last_iteration_q;
 
 // Implementation of the incoming and outgoing streaming interfaces (one for each kind of data)
 
-// X streaming interface + X FIFO interface
+// X streaming interface
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) x_buffer_d         ( .clk( clk_i ) );
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) x_buffer_fifo      ( .clk( clk_i ) );
 
-// W streaming interface + W FIFO interface
+// W streaming interface
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) w_buffer_d         ( .clk( clk_i ) );
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) w_buffer_fifo      ( .clk( clk_i ) );
 
-// Y streaming interface + Y FIFO interface
+// Y streaming interface
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) y_buffer_d         ( .clk( clk_i ) );
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) y_buffer_fifo      ( .clk( clk_i ) );
 
-// Z streaming interface + Z FIFO interface
+// Z streaming interface
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer_q         ( .clk( clk_i ) );
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer_d         ( .clk( clk_i ) );
-hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer_fifo      ( .clk( clk_i ) );
-
 
 logic w_granted, x_granted;
 logic [NumStreamSources-1:0][$clog2(NumStreamSources)-1:0] custom_priority;
@@ -192,16 +166,10 @@ ope_streamer #(
 // NOTE: consider a out_ready_i signal to synchronize everything
 // Right now, it is not needed
 
-logic not_empty_x_reg, not_empty_w_reg;
-logic start_register_reading_q, start_register_reading_d;
-
-assign start_register_reading_d = not_empty_x_reg && not_empty_w_reg;
 
 logic reg_to_engine_valid;
 logic x_reg_to_engine_valid, w_reg_to_engine_valid;
 logic [DATAW/2 - 1: 0] x_reg_to_engine_data, w_reg_to_engine_data;
-logic [DATAW-1:0] x_buffer_additional_reg_d,x_buffer_additional_reg_q;
-logic x_buffer_additional_reg_ready,x_buffer_additional_reg_valid_d,x_buffer_additional_reg_valid_q;
 
 
 assign reg_to_engine_valid = x_reg_to_engine_valid && w_reg_to_engine_valid;
@@ -221,7 +189,7 @@ reg_array_io_wrapper #(
   .ready_o            ( x_ready                  ),
   .data_o             ( x_reg_to_engine_data),
   .valid_o            (x_reg_to_engine_valid),
-  .not_empty_o        ( not_empty_x_reg)
+  .not_empty_o        ( )
 );
 
 reg_array_io_wrapper #(
@@ -239,7 +207,7 @@ reg_array_io_wrapper #(
   .ready_o            ( w_ready         ),
   .data_o             (w_reg_to_engine_data                ),
   .valid_o            (w_reg_to_engine_valid),
-  .not_empty_o        ( not_empty_w_reg       )     
+  .not_empty_o        (        )     
 );
 assign w_buffer_d.ready = w_ready; //&~ mask_streamer;
 assign x_buffer_d.ready = x_ready; // &~ mask_streamer;
@@ -259,75 +227,15 @@ assign x_buffer_d.ready = x_ready; // &~ mask_streamer;
 /*---------------------------------------------------------------*/
 /* |                          Engine                           | */
 /*---------------------------------------------------------------*/
-cntrl_engine_t ctrl_engine;
-flgs_engine_t  flgs_engine;
 
 // Engine signals
 // Control signal for successive accumulations
-logic                               accumulate;
-// fpnew_fma Input Signals
-logic                         [2:0] fma_is_boxed;
-logic                         [1:0] noncomp_is_boxed;
-roundmode_e                         stage1_rnd,
-                                    stage2_rnd;
-operation_e                         op1, op2;
-fpu_fmt_e                           memory_fmt, computing_fmt;
-logic                               same_fmt;
-logic                               op_mod;
-logic                               in_tag;
-logic                               in_aux;
-// fpnew_fma Input Handshake
-logic                               in_valid;
+
 logic       [Width-1:0][Height-1:0] in_ready;
 
-logic                               flush;
-// fpnew_fma Output signals
-status_t    [Width-1:0][Height-1:0] status;
-logic       [Width-1:0][Height-1:0] extension_bit;
-classmask_e [Width-1:0][Height-1:0] class_mask;
-logic       [Width-1:0][Height-1:0] is_class;
-logic       [Width-1:0][Height-1:0] out_tag;
-logic       [Width-1:0][Height-1:0] out_aux;
-// fpnew_fma Output handshake
-logic       [Width-1:0][Height-1:0] out_valid;
-logic                               out_ready;
-// fpnew_fma Indication of valid data in flight
-logic        busy;
 
-// Binding from engine interface types to cntrl_engine_t and
-assign fma_is_boxed     = cntrl_engine.fma_is_boxed;
-assign noncomp_is_boxed = cntrl_engine.noncomp_is_boxed;
-assign stage1_rnd       = cntrl_engine.stage1_rnd;
-assign stage2_rnd       = cntrl_engine.stage2_rnd;
-assign op1              = cntrl_engine.op1;
-assign op2              = cntrl_engine.op2;
-
-assign memory_fmt       = cntrl_engine.memory_format;
-assign computing_fmt    = cntrl_engine.computing_format;
-assign same_fmt         = (cntrl_engine.memory_format == cntrl_engine.computing_format)? 1'b1 : 1'b0;
-
-assign op_mod           = cntrl_engine.op_mod;
-assign in_tag           = 1'b0;
-assign in_aux           = 1'b0;
-assign in_valid         = cntrl_engine.in_valid;
-assign flush            = cntrl_engine.flush | clear;
-assign out_ready        = cntrl_engine.out_ready;
-always_comb begin
-  for (int w = 0; w < Width; w++) begin
-    for (int h = 0; h < Height; h++) begin
-      flgs_engine.in_ready      [w][h] = in_ready      [w][h];
-      flgs_engine.status        [w][h] = status        [w][h];
-      flgs_engine.extension_bit [w][h] = extension_bit [w][h];
-      flgs_engine.out_valid     [w][h] = out_valid     [w][h];
-    end
-  end
-end
 
 logic priority_enforcer_enable;
-assign reg_enable = priority_enforcer_enable;
-logic engine_out_valid;
-logic [2*Width-1:0][BITW-1:0] engine_out_data;
-logic accumulation_reg_full_first;
 // Engine instance
 ope_engine     #(
   .FpFormat        ( FpFormat),
@@ -344,19 +252,7 @@ ope_engine     #(
   .z_output_o         (z_buffer_q.data),
    
    // From controller
-  .fma_is_boxed_i     ( fma_is_boxed     ),
-  .noncomp_is_boxed_i ( noncomp_is_boxed ),
-  .stage1_rnd_i       ( stage1_rnd       ),
-  .stage2_rnd_i       ( stage2_rnd       ),
-  .op1_i              ( op1              ),
-  .op2_i              ( op2              ),
-  .memory_fmt_i       ( memory_fmt       ),
-  .computing_fmt_i    ( computing_fmt    ),
-  .same_fmt_i         ( same_fmt         ),
-  .op_mod_i           ( op_mod           ),
-  .tag_i              ( in_tag           ),
-  .aux_i              ( in_aux           ),
-  .reg_enable_i       ( reg_enable       ),
+  .reg_enable_i       ( priority_enforcer_enable ),
 
   // From reg_io_wrapper
   .in_valid_i         ( reg_to_engine_valid         ),
@@ -364,27 +260,14 @@ ope_engine     #(
   .in_ready_o         ( in_ready         ),
 
   // Memory Scheduler
-  .iteration_change_i (1'b0),
-  .single_iteration_i ( 1'b0   ),
-  .status_o           ( status           ),
-  .extension_bit_o    ( extension_bit    ),
-  .class_mask_o       ( class_mask       ),
-  .is_class_o         ( is_class         ),
-  .tag_o              ( out_tag          ),
-  .aux_o              ( out_aux          ),
   .out_valid_o        ( z_valid),
   .out_ready_i        ( z_buffer_q.ready &~ mask_z),
   .accumulation_reg_y_ready_o (y_ready),
-  .accumulation_reg_full_first_o (accumulation_reg_full_first),
   .last_iteration_i   ( last_iteration_q ),
   .start_i             (cntrl_scheduler.start_load_x),
-  .busy_o             ( busy             ),
   .cntrl_engine_i     ( cntrl_engine     ) // Only inner loop count is used from this!
 );
 assign y_buffer_d.ready = y_ready &~ mask_streamer;
-assign engine_out_valid = z_buffer_d.valid;
-logic system_busy; 
-assign system_busy = busy || not_empty_x_reg || not_empty_w_reg;
 
 /*---------------------------------------------------------------*/
 /* |                        Controller                         | */
@@ -427,7 +310,6 @@ ope_ctrl        #(
   .periph             ( periph                  )
 );
 
-  assign z_buffer_d.data = engine_out_data;
   assign z_buffer_q.strb = {{DATAW_ALIGN/8{1'b1}}};
   assign z_buffer_q.valid = z_valid &~ mask_z;
 
