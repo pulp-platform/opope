@@ -123,7 +123,6 @@ module ope_fma #(
     // 2. if the next stage only holds a bubble (not valid) -> we can pop it
     assign inp_pipe_ready[i] = inp_pipe_ready[i+1] | ~inp_pipe_valid_q[i+1];
     // Valid: enabled by ready signal, synchronous clear with the flush signal
-    `FFLARNC(inp_pipe_valid_q[i+1], inp_pipe_valid_q[i], inp_pipe_ready[i], flush_i, 1'b0, clk_i, rst_ni)
     // Enable register if pipleine ready and a valid data item is present
     if (Stallable) begin : gen_inp_stallable
       assign reg_ena = inp_pipe_ready[i] & inp_pipe_valid_q[i] & reg_enable_i;
@@ -131,6 +130,7 @@ module ope_fma #(
       assign reg_ena = inp_pipe_ready[i] & inp_pipe_valid_q[i];
     end
     // Generate the pipeline registers within the stages, use enable-registers
+    `FFLARNC(inp_pipe_valid_q[i+1], inp_pipe_valid_q[i],   reg_ena, flush_i, 1'b0, clk_i, rst_ni)
     `FFL(inp_pipe_operands_q[i+1], inp_pipe_operands_q[i], reg_ena, '0)
     `FFL(inp_pipe_is_boxed_q[i+1], inp_pipe_is_boxed_q[i], reg_ena, '0)
     `FFL(inp_pipe_rnd_mode_q[i+1], inp_pipe_rnd_mode_q[i], reg_ena, fpnew_pkg::RNE)
@@ -436,7 +436,6 @@ module ope_fma #(
     // 2. if the next stage only holds a bubble (not valid) -> we can pop it
     assign mid_pipe_ready[i] = mid_pipe_ready[i+1] | ~mid_pipe_valid_q[i+1];
     // Valid: enabled by ready signal, synchronous clear with the flush signal
-    `FFLARNC(mid_pipe_valid_q[i+1], mid_pipe_valid_q[i], mid_pipe_ready[i], flush_i, 1'b0, clk_i, rst_ni)
     // Enable register if pipleine ready and a valid data item is present
     if (Stallable) begin : gen_mid_stallable
       assign reg_ena = mid_pipe_ready[i] & mid_pipe_valid_q[i] & reg_enable_i;
@@ -444,6 +443,7 @@ module ope_fma #(
       assign reg_ena = mid_pipe_ready[i] & mid_pipe_valid_q[i];
     end
     // Generate the pipeline registers within the stages, use enable-registers
+    `FFLARNC(mid_pipe_valid_q[i+1], mid_pipe_valid_q[i],         reg_ena, flush_i, 1'b0, clk_i, rst_ni)
     `FFL(mid_pipe_eff_sub_q[i+1],     mid_pipe_eff_sub_q[i],     reg_ena, '0)
     `FFL(mid_pipe_exp_prod_q[i+1],    mid_pipe_exp_prod_q[i],    reg_ena, '0)
     `FFL(mid_pipe_exp_diff_q[i+1],    mid_pipe_exp_diff_q[i],    reg_ena, '0)
@@ -660,7 +660,6 @@ module ope_fma #(
     // 2. if the next stage only holds a bubble (not valid) -> we can pop it
     assign out_pipe_ready[i] = out_pipe_ready[i+1] | ~out_pipe_valid_q[i+1];
     // Valid: enabled by ready signal, synchronous clear with the flush signal
-    `FFLARNC(out_pipe_valid_q[i+1], out_pipe_valid_q[i], out_pipe_ready[i], flush_i, 1'b0, clk_i, rst_ni)
     // Enable register if pipleine ready and a valid data item is present
     if (Stallable) begin : gen_out_stallable
       assign reg_ena = out_pipe_ready[i] & out_pipe_valid_q[i] & reg_enable_i;
@@ -668,10 +667,11 @@ module ope_fma #(
       assign reg_ena = out_pipe_ready[i] & out_pipe_valid_q[i];
     end
     // Generate the pipeline registers within the stages, use enable-registers
-    `FFL(out_pipe_result_q[i+1], out_pipe_result_q[i], reg_ena, '0)
-    `FFL(out_pipe_status_q[i+1], out_pipe_status_q[i], reg_ena, '0)
-    `FFL(out_pipe_tag_q[i+1],    out_pipe_tag_q[i],    reg_ena, TagType'('0))
-    `FFL(out_pipe_aux_q[i+1],    out_pipe_aux_q[i],    reg_ena, AuxType'('0))
+    `FFLARNC(out_pipe_valid_q[i+1], out_pipe_valid_q[i], reg_ena, flush_i, 1'b0, clk_i, rst_ni)
+    `FFL(out_pipe_result_q[i+1], out_pipe_result_q[i],   reg_ena, '0)
+    `FFL(out_pipe_status_q[i+1], out_pipe_status_q[i],   reg_ena, '0)
+    `FFL(out_pipe_tag_q[i+1],    out_pipe_tag_q[i],      reg_ena, TagType'('0))
+    `FFL(out_pipe_aux_q[i+1],    out_pipe_aux_q[i],      reg_ena, AuxType'('0))
   end
   // Output stage: Ready travels backwards from output side, driven by downstream circuitry
   assign out_pipe_ready[NUM_OUT_REGS] = out_ready_i;

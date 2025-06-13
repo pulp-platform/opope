@@ -251,7 +251,7 @@ module ope_ctrl
     latch_clear                     = 1'b0;
     cntrl_slave.done                = 1'b0;
     busy_o                          = 1'b1;
-    ce_enable      = 1'b0;
+    // ce_enable      = 1'b0;
     cntrl_scheduler.rst           = 1'b0;
     cntrl_scheduler.finished      = 1'b0;
     cntrl_scheduler.start_load_w  = 1'b0;
@@ -281,7 +281,7 @@ module ope_ctrl
       end
       OPE_COMPUTING: begin
         change_state                = finished;
-        ce_enable  = 1'b1;
+        // ce_enable  = 1'b1;
       end
       OPE_FINISHED : begin
         cntrl_slave.done           = 1'b1;
@@ -576,9 +576,10 @@ module ope_ctrl
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
         end
         y_ready_o = 1'b1;
-        external_loading           = 1'b1;
-        y_bias_selector            = 1'b1;
-        in_ready_o                 = 1'b1;
+        external_loading = 1'b1;
+        y_bias_selector  = 1'b1;
+        in_ready_o       = 1'b1;
+        ce_enable        = in_valid_i;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Y_READ_ENGINE_RUNNING: begin
@@ -595,6 +596,7 @@ module ope_ctrl
         y_ready_o = ~(prefetched_q ); //~acc_change_state;
         in_ready_o                 = 1'b1;
         external_loading           = ~(prefetched_q );
+        ce_enable        = in_valid_i;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_ENGINE_RUNNING: begin
@@ -603,6 +605,7 @@ module ope_ctrl
           acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
         end
         in_ready_o                 = 1'b1;
+        ce_enable        = in_valid_i;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD_Y_ENGINE: begin // Storing the z values to acc, reload the y values to the engine
@@ -613,6 +616,7 @@ module ope_ctrl
         acc_input_selector         = 1'b1;
         y_bias_selector            = 1'b1;
         in_ready_o                 = 1'b1;
+        ce_enable        = in_valid_i;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD: begin // Storing the z values to acc
@@ -621,6 +625,7 @@ module ope_ctrl
         acc_change_state = (z_read_reg_index_q == REG_PER_CE - 1);
         acc_input_selector         = 1'b1;
         acc_done_d                     = 1'b1;
+        ce_enable        = 1'b1;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_STORE: begin // Stream out the z values to the memory
@@ -632,6 +637,7 @@ module ope_ctrl
           z_read_row_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? (z_read_row_index_q == Height - 1) ? 'b0: z_read_row_index_q + 1: z_read_row_index_q;
           acc_change_state   = (z_read_row_index_q == Height - 1 && z_read_reg_index_q == REG_PER_CE - 2); // This need to change
         end
+        ce_enable = in_valid_i &~ acc_done_q;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
     endcase

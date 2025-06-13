@@ -163,7 +163,7 @@ module ope_engine
         .aux_i              ( 1'b0                                            ),
         .in_valid_i         ( cntrl_engine_i.in_valid  && cntrl_engine_i.in_ready                       ), 
         .in_ready_o         (                                                 ),
-        .reg_enable_i       ( cntrl_engine_i.reg_enable                                    ),
+        .reg_enable_i       ( cntrl_engine_i.reg_enable ),
         .flush_i            ( 1'b0                                            ),
         .z_output_o         ( engine_to_reg_output[row_index][col_index]      ),
         .status_o           (                                                 ), // Not used 

@@ -39,7 +39,7 @@ module ope_buffers
   input  logic [DATA_WIDTH      -1:0]  z_data_i  
 );
 
-// FIXME: if FIFO_DEPTH>0, correct execution but violation of assertions in streamer
+
 localparam int unsigned X_FIFO_DEPTH = 0;
 localparam int unsigned W_FIFO_DEPTH = 0;
 localparam int unsigned Y_FIFO_DEPTH = 0;
@@ -151,7 +151,7 @@ reg_array_io_wrapper #(
   .ready_o            ( x_fifo.ready ),
 
   // Engine
-  .ready_i            ( in_ready_i   ),
+  .ready_i            ( in_ready_i && w_valid ),
   .data_o             ( x_data_o     ),
   .valid_o            ( x_valid      )
 );
@@ -171,7 +171,7 @@ reg_array_io_wrapper #(
   .ready_o            ( w_fifo.ready ),
 
   // Engine
-  .ready_i            ( in_ready_i   ),
+  .ready_i            ( in_ready_i  && x_valid  ),
   .data_o             ( w_data_o     ),
   .valid_o            ( w_valid      )
 );
