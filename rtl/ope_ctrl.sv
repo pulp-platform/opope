@@ -324,7 +324,7 @@ module ope_ctrl
   always_comb begin : streamer_values
     y_counter_d        = y_counter_q       ;
     priority_counter_d = priority_counter_q;
-    mask_y_o    = 1'b0;
+    mask_y_o           = 1'b0;
     mask_z_o           = 1'b1;
     extra_d            = extra_q;
     done_d             = done_q ;
@@ -347,24 +347,23 @@ module ope_ctrl
       end
       STREAMER_XWM: begin
         extra_d               = extra_q + y_granted;
-        priority_counter_d    = priority_counter_q + (grant | priority_counter_q[1]);
-        mask_y_o       = priority_counter_q[1];
-        streamer_change_state = (priority_counter_d == '0) & out_valid_o;
+        priority_counter_d    = priority_counter_q + grant;
+        mask_y_o              = priority_counter_q[1];
+        streamer_change_state = out_valid_o;
         mask_z_o              = ~(streamer_change_state & done_q);
       end
       STREAMER_XWZ: begin
         streamer_change_state = (y_counter_q == LoadCycles-1) & y_granted;
         y_counter_d           = streamer_change_state ? extra_q : y_counter_q + y_granted;
         priority_counter_d    = priority_counter_q + grant;
-        // mask_z_o              = ^priority_counter_q;
-        mask_y_o       = 1'b1;
-        mask_z_o              = priority_counter_q[1];
+        mask_y_o              = 1'b1;
+        mask_z_o              = 1'b0;
         done_d                = last_iteration_q;
       end 
       STREAMER_Z  : begin
         y_counter_d           = y_counter_q + y_granted;
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
-        priority_counter_d    = 2'b11 + streamer_change_state;
+        priority_counter_d    = 2'b11;
         mask_z_o              = 1'b0;
         done_d                = 1'b0;
         finished              = streamer_change_state;

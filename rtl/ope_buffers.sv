@@ -66,7 +66,7 @@ if (X_FIFO_DEPTH > 0) begin : gen_x_fifo
     .pop_o          ( x_fifo        )
   );
 end else begin : no_x_fifo
-    hwpe_stream_assign(.push_i(x_stream_i), .pop_o(x_fifo));
+    hwpe_stream_assign i_no_x_fifo (.push_i(x_stream_i), .pop_o(x_fifo));
 end
 
 if (W_FIFO_DEPTH > 0) begin : gen_w_fifo
@@ -82,7 +82,7 @@ if (W_FIFO_DEPTH > 0) begin : gen_w_fifo
     .pop_o          ( w_fifo        )
   );
 end else begin : no_w_fifo
-    hwpe_stream_assign(.push_i(w_stream_i), .pop_o(w_fifo));
+    hwpe_stream_assign i_no_w_fifo (.push_i(w_stream_i), .pop_o(w_fifo));
 end
 
 if (Y_FIFO_DEPTH > 0) begin : gen_y_fifo
@@ -98,7 +98,7 @@ if (Y_FIFO_DEPTH > 0) begin : gen_y_fifo
     .pop_o          ( y_fifo        )
   );
 end else begin : no_y_fifo
-    hwpe_stream_assign(.push_i(y_stream_i), .pop_o(y_fifo));
+    hwpe_stream_assign i_no_y_fifo (.push_i(y_stream_i), .pop_o(y_fifo));
 end
 
 if (Z_FIFO_DEPTH > 0) begin : gen_z_fifo
@@ -114,7 +114,7 @@ if (Z_FIFO_DEPTH > 0) begin : gen_z_fifo
     .pop_o          ( z_fifo_out    )
   );
 end else begin : no_z_fifo
-  hwpe_stream_assign(.push_i(z_fifo), .pop_o(z_fifo_out));
+  hwpe_stream_assign i_no_z_fifo (.push_i(z_fifo), .pop_o(z_fifo_out));
 end
 
 // Y stream
