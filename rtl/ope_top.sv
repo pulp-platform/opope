@@ -207,6 +207,7 @@ ope_engine     #(
 ) i_ope_engine (
   .clk_i              ( clk_i        ),
   .rst_ni             ( rst_ni       ),
+  .clk_en_i           (ce_clk_en     ),
   .x_input_i          ( x_data       ),
   .w_input_i          ( w_data       ),
   .y_bias_i           ( y_data       ),

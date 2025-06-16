@@ -43,7 +43,7 @@ module ope_ctrl
   output logic       y_ready_o,  
   output logic       out_valid_o        ,
   output logic       in_ready_o         , 
-  output logic ce_clk_en_o       ,
+  output logic       ce_clk_en_o        ,
   
   // Peripheral slave port
   hwpe_ctrl_intf_periph.slave     periph
@@ -246,12 +246,12 @@ module ope_ctrl
   end
 
   always_comb begin : controller_values
-    change_state                    = 1'b0;
-    tiler_setback                   = 1'b0;
-    latch_clear                     = 1'b0;
-    cntrl_slave.done                = 1'b0;
-    busy_o                          = 1'b1;
-    // ce_enable      = 1'b0;
+    change_state                  = 1'b0;
+    tiler_setback                 = 1'b0;
+    latch_clear                   = 1'b0;
+    cntrl_slave.done              = 1'b0;
+    busy_o                        = 1'b1;
+    ce_clk_en_o                   = 1'b0;
     cntrl_scheduler.rst           = 1'b0;
     cntrl_scheduler.finished      = 1'b0;
     cntrl_scheduler.start_load_w  = 1'b0;
@@ -280,8 +280,8 @@ module ope_ctrl
         change_state = start_computing;
       end
       OPE_COMPUTING: begin
-        change_state                = finished;
-        // ce_enable  = 1'b1;
+        change_state = finished;
+        ce_clk_en_o  = 1'b1;
       end
       OPE_FINISHED : begin
         cntrl_slave.done           = 1'b1;
@@ -537,7 +537,6 @@ module ope_ctrl
     in_ready_o                    = 1'b0;
     out_valid_o                   = 1'b0;
     y_ready_o    = 1'b0;
-    ce_clk_en_o                   = 1'b1;
 
     case (acc_state_current)
     // -------------------------------------------------------------------------------------------------------------------------------------
@@ -551,7 +550,6 @@ module ope_ctrl
         inner_loop_counter_d       = '0;
         reg_write_to_engine_d      = '0;
         prefetched_d               = '0;
-        ce_clk_en_o                = '0;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Y_READ: begin

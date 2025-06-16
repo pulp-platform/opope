@@ -17,27 +17,26 @@ module ope_engine
  parameter  type          TagType     = logic                        ,
  parameter  type          AuxType     = logic                        ,
  localparam int unsigned  BITW        = fpnew_pkg::fp_width(FpFormat), // Number of bits for the given format
- localparam int unsigned  H           = Height                       ,
- localparam int unsigned  W           = Width                        ,
+//  localparam int unsigned  H           = Height                       ,
+//  localparam int unsigned  W           = Width                        ,
  parameter logic          Stallable   = 1'b1                         
 )(
-  input  logic                                             clk_i              ,
-  input  logic                                             rst_ni             ,
-  input  logic                    [  H-1:0][BITW-1:0]      x_input_i          , // Column of inputs
-  input  logic                    [  W-1:0][BITW-1:0]      w_input_i          , // Row of weights
-  input  logic                    [2*W-1:0][BITW-1:0]      y_bias_i           , // Row of biases
-  output logic                    [2*W-1:0][BITW-1:0]      z_output_o         , // Row of outputs
+  input  logic                          clk_i              ,
+  input  logic                          rst_ni             ,
+  input  logic                          clk_en_i           ,
+  input  logic [ Height-1:0][BITW-1:0]  x_input_i          , // Column of inputs
+  input  logic [  Width-1:0][BITW-1:0]  w_input_i          , // Row of weights
+  input  logic [2*Width-1:0][BITW-1:0]  y_bias_i           , // Row of biases
+  output logic [2*Width-1:0][BITW-1:0]  z_output_o         , // Row of outputs
 
-  input  cntrl_engine_t                                    cntrl_engine_i  // This include the mode (idle, load, compute, read) and the row_index
+  input  cntrl_engine_t                 cntrl_engine_i  // This include the mode (idle, load, compute, read) and the row_index
 );
 
 
   logic [Height-1:0][Width-1:0][2*BITW-1:0] reg_out_data;
 
   logic [Height-1:0][Width-1:0][BITW-1:0] engine_to_reg_output;
-  logic [Height-1:0][Width-1:0]           engine_to_reg_out_valid;
 
-  logic ce_clk_en;
   logic ce_clk;
   logic [Height-1:0][Width-1:0]             acc_in_valid;
   logic [Height-1:0][Width-1:0][2*BITW-1:0] acc_in_data;
@@ -52,7 +51,7 @@ module ope_engine
     for (int row_index = 0; row_index < Height; row_index++) begin
       for (int col_index = 0; col_index < Width; col_index++) begin
         if (cntrl_engine_i.acc_input_selector) begin // Load from the engine
-          acc_in_valid[row_index][col_index] = engine_to_reg_out_valid[row_index][col_index];
+          acc_in_valid[row_index][col_index] = 1'b1;
           acc_in_data[row_index][col_index]  = {engine_to_reg_output[row_index][col_index],engine_to_reg_output[row_index][col_index]};
           acc_write_index                    = cntrl_engine_i.reg_write_to_engine;
         end else begin // Load from external
@@ -93,8 +92,8 @@ module ope_engine
           .input_i            ( acc_in_data[row_index][col_index]                    ),         
           .write_en_i         ( acc_in_valid[row_index][col_index]                   ),
           .write_index_i      ( acc_write_index                                      ),
-          .external_loading   ( cntrl_engine_i.external_loading                                     ),
-          .read_index_i       ( cntrl_engine_i.z_read_reg_index                                   ),
+          .external_loading   ( cntrl_engine_i.external_loading                      ),
+          .read_index_i       ( cntrl_engine_i.z_read_reg_index                      ),
           .output_o           ( reg_out_data[row_index][col_index]                   )        
         );
       end
@@ -105,23 +104,16 @@ module ope_engine
   /* |                      Computing Elements                   | */
   /*---------------------------------------------------------------*/
 
-  // ******** Compute Engine 2D array ********
-
-  logic [H-1:0][W-1:0] busy;
-  always_comb begin : clock_gating_selector
-    ce_clk_en            = 1'b0;
-    if (cntrl_engine_i.in_valid || busy[0][0]) ce_clk_en = 1'b1;
-  end : clock_gating_selector
-  
+  // ******** Compute Engine 2D array ********  
   tc_clk_gating ce_clock_gating (
     .clk_i      ( clk_i     ),
-    .en_i       ( ce_clk_en ),
+    .en_i       ( clk_en_i  ),
     .test_en_i  ( '0        ),
     .clk_o      ( ce_clk    )    
   );
 
-  logic [H-1:0][W-1:0][2:0][BITW-1:0] ce_operands;
-  logic [H-1:0][W-1:0][BITW-1:0]      acc_operand;
+  logic [Height-1:0][Width-1:0][2:0][BITW-1:0] ce_operands;
+  logic [Height-1:0][Width-1:0][BITW-1:0]      acc_operand;
   logic same_fmt;
 
   always_comb begin 
@@ -161,9 +153,9 @@ module ope_engine
         .op_mod_i           ( cntrl_engine_i.op_mod                           ),
         .tag_i              ( 1'b0                                            ),
         .aux_i              ( 1'b0                                            ),
-        .in_valid_i         ( cntrl_engine_i.in_valid  && cntrl_engine_i.in_ready                       ), 
+        .in_valid_i         ( cntrl_engine_i.in_valid & cntrl_engine_i.in_ready), 
         .in_ready_o         (                                                 ),
-        .reg_enable_i       ( cntrl_engine_i.reg_enable ),
+        .reg_enable_i       ( cntrl_engine_i.reg_enable                       ),
         .flush_i            ( 1'b0                                            ),
         .z_output_o         ( engine_to_reg_output[row_index][col_index]      ),
         .status_o           (                                                 ), // Not used 
@@ -172,9 +164,9 @@ module ope_engine
         .is_class_o         (                                                 ), // Not used
         .tag_o              (                                                 ), // Not used
         .aux_o              (                                                 ), // Not used
-        .out_valid_o        ( engine_to_reg_out_valid[row_index][col_index]   ),
+        .out_valid_o        (                                                 ),
         .out_ready_i        ( 1'b1                                            ),
-        .busy_o             ( busy[row_index][col_index]                      )  // Not used
+        .busy_o             (                                                 )  // Not used
       );
       end
     end
