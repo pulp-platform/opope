@@ -153,7 +153,6 @@ ope_streamer #(
 /*---------------------------------------------------------------*/
 
 ope_buffers #(
-  .READING_POLICY   ( ope_pkg::INTERLEAVED ),
   .DATA_WIDTH       (DATAW),
   .DEPTH            (W_REGBUFFER_DEPTH)
 ) i_buffers (
@@ -187,15 +186,6 @@ ope_buffers #(
 /*---------------------------------------------------------------*/
 /* |                          Engine                           | */
 /*---------------------------------------------------------------*/
-
-// logic ce_clk_en;
-// logic ce_clk  ;
-// tc_clk_gating ce_clock_gating (
-//   .clk_i      ( clk_i     ),
-//   .en_i       ( ce_clk_en ),
-//   .test_en_i  ( '0        ),
-//   .clk_o      ( ce_clk    )    
-// );
 
 // Engine instance
 ope_engine     #(
