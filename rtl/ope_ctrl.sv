@@ -111,14 +111,14 @@ module ope_ctrl
 
   // Engine
   typedef enum logic [2:0] {
-    ACC_IDLE = 3'b000,
-    ACC_Y_READ = 3'b001,
-    ACC_LOAD_ENGINE = 3'b010,
-    ACC_Y_READ_ENGINE_RUNNING = 3'b011,
-    ACC_ENGINE_RUNNING = 3'b100,
-    ACC_Z_RELOAD_Y_ENGINE = 3'b101,
-    ACC_Z_RELOAD = 3'b110,
-    ACC_Z_STORE = 3'b111
+    ACC_IDLE,
+    ACC_Y_READ,
+    ACC_LOAD_ENGINE,
+    ACC_Y_READ_ENGINE_RUNNING,
+    ACC_ENGINE_RUNNING,
+    ACC_Z_RELOAD_Y_ENGINE,
+    ACC_Z_RELOAD,
+    ACC_Z_STORE
   } acc_state_e;
 
   acc_state_e acc_state_current, acc_state_next;
