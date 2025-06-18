@@ -138,6 +138,7 @@ module ope_ctrl
   logic external_loading;
   logic acc_done_d,acc_done_q;
   logic ce_enable;
+  logic shift_acc;
 
 
   /*---------------------------------------------------------------------------------------------*/
@@ -224,6 +225,7 @@ module ope_ctrl
   assign cntrl_engine_o.y_in_valid          = y_in_valid_i;
   assign cntrl_engine_o.in_ready            = in_ready_o;
   assign cntrl_engine_o.reg_enable          = ce_enable;
+  assign cntrl_engine_o.shift_acc           = shift_acc;
   
   /*---------------------------------------------------------------------------------------------*/
   /*                                        Controller FSM                                       */
@@ -536,7 +538,8 @@ module ope_ctrl
     external_loading              = 1'b0;
     in_ready_o                    = 1'b0;
     out_valid_o                   = 1'b0;
-    y_ready_o    = 1'b0;
+    y_ready_o                     = 1'b0;
+    shift_acc                     = 1'b0;
 
     case (acc_state_current)
     // -------------------------------------------------------------------------------------------------------------------------------------
@@ -556,10 +559,11 @@ module ope_ctrl
         if (y_in_valid_i) begin
           y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
           y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
-          acc_change_state        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
+          acc_change_state    = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
+          shift_acc             = 1'b1;
         end
-        external_loading              = 1'b1        ;
-        y_ready_o    = 1'b1        ;
+        external_loading      = 1'b1;
+        y_ready_o             = 1'b1;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_LOAD_ENGINE: begin
@@ -572,6 +576,7 @@ module ope_ctrl
           y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
           y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
+          shift_acc           = |y_write_row_index_q;
         end
         y_ready_o = 1'b1;
         external_loading = 1'b1;
@@ -585,15 +590,16 @@ module ope_ctrl
           y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
           y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
+          shift_acc           = |y_write_row_index_q;
         end
         if (in_valid_i) begin // This has to happen after the prefetched y is loaded
           inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
           acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
         end
         if (prefetched_q == 1'b1 && acc_state_current == ACC_Y_READ_ENGINE_RUNNING && acc_state_next == ACC_Z_RELOAD_Y_ENGINE) prefetched_d = 1'b0; // Reloaded value completed
-        y_ready_o = ~(prefetched_q ); //~acc_change_state;
-        in_ready_o                 = 1'b1;
-        external_loading           = ~(prefetched_q );
+        y_ready_o        = ~(prefetched_d ) &~ prefetched_q; //~acc_change_state;
+        in_ready_o       = 1'b1;
+        external_loading = ~(prefetched_q );
         ce_enable        = in_valid_i;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
@@ -610,20 +616,20 @@ module ope_ctrl
         if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
         z_read_reg_index_d         = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
         reg_write_to_engine_d      = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
-        acc_change_state               = (z_read_reg_index_q == REG_PER_CE - 1);
+        acc_change_state           = (z_read_reg_index_q == REG_PER_CE - 1);
         acc_input_selector         = 1'b1;
         y_bias_selector            = 1'b1;
         in_ready_o                 = 1'b1;
-        ce_enable        = in_valid_i;
+        ce_enable                  = in_valid_i;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD: begin // Storing the z values to acc
         z_read_reg_index_d    = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
         reg_write_to_engine_d = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
-        acc_change_state = (z_read_reg_index_q == REG_PER_CE - 1);
-        acc_input_selector         = 1'b1;
-        acc_done_d                     = 1'b1;
-        ce_enable        = 1'b1;
+        acc_change_state      = (z_read_reg_index_q == REG_PER_CE - 1);
+        acc_input_selector    = 1'b1;
+        acc_done_d            = 1'b1;
+        ce_enable             = 1'b1;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_STORE: begin // Stream out the z values to the memory
@@ -633,8 +639,10 @@ module ope_ctrl
         if (out_ready_i) begin
           z_read_reg_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? 'b0: z_read_reg_index_q + 2;
           z_read_row_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? (z_read_row_index_q == Height - 1) ? 'b0: z_read_row_index_q + 1: z_read_row_index_q;
-          acc_change_state   = (z_read_row_index_q == Height - 1 && z_read_reg_index_q == REG_PER_CE - 2); // This need to change
+          acc_change_state   = (z_read_row_index_q == Height - 1 && z_read_reg_index_q == REG_PER_CE - 2);
+          shift_acc = 1'b1;
         end
+        external_loading = 1'b1;
         ce_enable = in_valid_i &~ acc_done_q;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------

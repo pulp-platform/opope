@@ -17,9 +17,8 @@ module ope_engine
  parameter  type          TagType     = logic                        ,
  parameter  type          AuxType     = logic                        ,
  localparam int unsigned  BITW        = fpnew_pkg::fp_width(FpFormat), // Number of bits for the given format
-//  localparam int unsigned  H           = Height                       ,
-//  localparam int unsigned  W           = Width                        ,
- parameter logic          Stallable   = 1'b1                         
+ parameter logic          Stallable   = 1'b1                         ,
+ localparam int unsigned  MUX_SH_n    = 1
 )(
   input  logic                          clk_i              ,
   input  logic                          rst_ni             ,
@@ -41,36 +40,65 @@ module ope_engine
   logic [Height-1:0][Width-1:0]             acc_in_valid;
   logic [Height-1:0][Width-1:0][2*BITW-1:0] acc_in_data;
   logic [$clog2(REG_PER_CE)-1:0]            acc_write_index;
+  logic [$clog2(REG_PER_CE)-1:0]            acc_read_index ;
 
   /*---------------------------------------------------------------*/
-  /* |                      Writing Mutliplexer                  | */
+  /* |                  Accumulator Read and Write               | */
   /*---------------------------------------------------------------*/
   
 
-  always_comb begin 
-    for (int row_index = 0; row_index < Height; row_index++) begin
+  always_comb begin : acc_rd_wr
+    
+    // Multiplexer-based write-in and read-out 
+    if(MUX_SH_n) begin
       for (int col_index = 0; col_index < Width; col_index++) begin
-        if (cntrl_engine_i.acc_input_selector) begin // Load from the engine
-          acc_in_valid[row_index][col_index] = 1'b1;
-          acc_in_data[row_index][col_index]  = {engine_to_reg_output[row_index][col_index],engine_to_reg_output[row_index][col_index]};
-          acc_write_index                    = cntrl_engine_i.reg_write_to_engine;
-        end else begin // Load from external
-          acc_in_valid[row_index][col_index] = cntrl_engine_i.y_in_valid && (row_index == cntrl_engine_i.y_write_row_index) && cntrl_engine_i.external_loading;
-          acc_in_data[row_index][col_index]  = {y_bias_i[2*col_index+1],y_bias_i[2*col_index]};
-          acc_write_index                    = cntrl_engine_i.y_write_reg_index;
+        
+        // Write logic
+        for (int row_index = 0; row_index < Height; row_index++) begin
+          if (cntrl_engine_i.acc_input_selector) begin // Load from the engine
+            acc_in_valid[row_index][col_index] = 1'b1;
+            acc_in_data [row_index][col_index] = {engine_to_reg_output[row_index][col_index],engine_to_reg_output[row_index][col_index]};
+            acc_write_index                    = cntrl_engine_i.reg_write_to_engine;
+          end else begin // Load from external
+            acc_in_valid[row_index][col_index] = cntrl_engine_i.y_in_valid && (row_index == cntrl_engine_i.y_write_row_index) && cntrl_engine_i.external_loading;
+            acc_in_data [row_index][col_index] = {y_bias_i[2*col_index+1],y_bias_i[2*col_index]};
+            acc_write_index                    = cntrl_engine_i.y_write_reg_index;
+          end
         end
+
+        // Read logic
+        z_output_o[2*col_index  ] = reg_out_data[cntrl_engine_i.z_read_row_index][col_index][  BITW-1:0   ];
+        z_output_o[2*col_index+1] = reg_out_data[cntrl_engine_i.z_read_row_index][col_index][2*BITW-1:BITW];
       end
+      acc_read_index = cntrl_engine_i.z_read_reg_index;
     end
-  end
 
-  /*---------------------------------------------------------------*/
-  /* |                      Reading Mutliplexer                  | */
-  /*---------------------------------------------------------------*/
+    // Shift-based write-in and read-out 
+    else begin
+      acc_read_index = cntrl_engine_i.z_read_reg_index;
+      for (int col_index = 0; col_index < Width; col_index++) begin        
+        
+        // Write logic
+        for (int row_index = 0; row_index < Height; row_index++) begin
+          if (cntrl_engine_i.acc_input_selector) begin // Load from the engine
+            acc_in_valid[row_index][col_index] = 1'b1;
+            acc_in_data [row_index][col_index] = {engine_to_reg_output[row_index][col_index],engine_to_reg_output[row_index][col_index]};
+            acc_write_index                    = cntrl_engine_i.reg_write_to_engine;
+          end else begin // Load from external
+            acc_in_valid[row_index][col_index] = (cntrl_engine_i.y_in_valid && cntrl_engine_i.external_loading) | cntrl_engine_i.shift_acc;
+            acc_in_data [row_index][col_index] = row_index != Height-1 ? reg_out_data[row_index + 1][col_index]
+                                                                       : {y_bias_i[2*col_index+1],y_bias_i[2*col_index]};
+            acc_write_index  = cntrl_engine_i.shift_acc &~ cntrl_engine_i.y_in_valid ? cntrl_engine_i.z_read_reg_index  
+                                                                                     : cntrl_engine_i.y_write_reg_index;
+            acc_read_index   = cntrl_engine_i.shift_acc &  cntrl_engine_i.y_in_valid ? cntrl_engine_i.y_write_reg_index 
+                                                                                     : cntrl_engine_i.z_read_reg_index ;
+          end
+        end
 
-  always_comb begin
-    for (int col_index = 0; col_index < Width; col_index++) begin
-      z_output_o[2*col_index  ] = reg_out_data[cntrl_engine_i.z_read_row_index][col_index][  BITW-1:0   ];
-      z_output_o[2*col_index+1] = reg_out_data[cntrl_engine_i.z_read_row_index][col_index][2*BITW-1:BITW];
+        // Read logic
+        z_output_o[2*col_index  ] = reg_out_data[0][col_index][  BITW-1:0   ];
+        z_output_o[2*col_index+1] = reg_out_data[0][col_index][2*BITW-1:BITW];
+      end
     end
   end
 
@@ -93,7 +121,7 @@ module ope_engine
           .write_en_i         ( acc_in_valid[row_index][col_index]                   ),
           .write_index_i      ( acc_write_index                                      ),
           .external_loading   ( cntrl_engine_i.external_loading                      ),
-          .read_index_i       ( cntrl_engine_i.z_read_reg_index                      ),
+          .read_index_i       ( acc_read_index                                       ),
           .output_o           ( reg_out_data[row_index][col_index]                   )        
         );
       end

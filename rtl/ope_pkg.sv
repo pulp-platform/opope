@@ -328,6 +328,7 @@ package ope_pkg;
     logic y_bias_selector     ;
     logic acc_input_selector  ;
     logic external_loading    ;
+    logic shift_acc           ;
   } cntrl_engine_t;
 
   typedef enum {
