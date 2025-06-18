@@ -114,8 +114,12 @@ module ope_buffers
   end
 
   // Y stream
-  assign y_fifo.ready = y_ready_i &~ mask_y_i;
-  assign y_valid_o    = y_fifo.valid & y_ready_i &~ mask_y_i;
+  logic y_ready_d,y_ready_q;
+  assign y_ready_d    = y_ready_i &~ mask_y_i ? 1'b1 :
+                        y_fifo.valid          ? 1'b0 : y_ready_q;
+                        
+  assign y_fifo.ready = y_ready_q;
+  assign y_valid_o    = y_fifo.valid & y_ready_q;
   assign y_data_o     = y_fifo.data      ;
 
   // Z stream
@@ -215,11 +219,13 @@ module ope_buffers
 
   always_ff @(posedge clk_i or negedge rst_ni) begin 
     if (~rst_ni) begin
+      y_ready_q      <= '0;
       buffer_current <= BUFFER_IDLE;
       ready_cnt_q    <= '0;
       w_reg_q        <= '0;
       x_reg_q        <= '0;
     end else begin 
+      y_ready_q      <= y_ready_d  ;
       buffer_current <= buffer_next;
       ready_cnt_q    <= ready_cnt_d;
       w_reg_q        <= w_reg_d    ;
