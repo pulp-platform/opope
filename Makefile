@@ -146,6 +146,9 @@ sw-all: sw-clean sw-build
 
 sim: hw-clean sw-clean synth-ips hw-script hw-build sw-build hw-run
 
+sim-all:
+	source scripts/run_all.sh &> logs/sim_all.log
+
 # Install tools
 CXX ?= g++
 NumCores := $(shell nproc)

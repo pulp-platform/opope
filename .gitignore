@@ -34,3 +34,4 @@ golden-model/*/scripts/__pycache__/*
 scripts/synth_compile.tcl
 target/sim/vsim/compile.vsim.tcl
 target/sim/vsim/transcript
+logs/*
