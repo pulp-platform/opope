@@ -10,7 +10,7 @@ Questa ?=
 Module := redmule
 VsimDir := $(SimDir)/$(target)
 VsimCompileScript := $(VsimDir)/compile.$(target).tcl
-VsimWaves := $(VsimDir)/wave.tcl
+VsimWaves := $(VsimDir)/wave.do
 
 
 module_vcd ?= 0
