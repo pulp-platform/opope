@@ -22,7 +22,6 @@ module redmule_tb
 );
 
   localparam int unsigned DW = ope_pkg::DATA_W;
-  // ope_pkg::cntrl_scheduler_t debug_cntrl_scheduler;
 
   // parameters
   localparam int unsigned PROB_STALL = 0;
@@ -59,13 +58,11 @@ module redmule_tb
   logic [MP-1:0]       tcdm_wen;
   logic [MP-1:0][3:0]  tcdm_be;
   logic [MP-1:0][31:0] tcdm_data;
-  // logic [1:2]       tcdm_ecc;
   logic [EW-1:0]       tcdm_ecc;
   logic [MP-1:0][31:0] tcdm_r_data;
   logic [MP-1:0]       tcdm_r_valid;
   logic                tcdm_r_opc;
   logic                tcdm_r_user;
-  // logic [1:2]       tcdm_r_ecc;
   logic [EW-1:0]       tcdm_r_ecc;
 
   logic          periph_req;
@@ -229,7 +226,6 @@ module redmule_tb
     .tcdm_r_opc_i       ( tcdm_r_opc         ),
     .tcdm_r_user_i      ( tcdm_r_user        ),
     .tcdm_r_ecc_i       ( tcdm_r_ecc         ),
-    // .debug_cntrl_scheduler_o(debug_cntrl_scheduler),
     .periph_req_i       ( periph_req         ),
     .periph_gnt_o       ( periph_gnt         ),
     .periph_add_i       ( periph_add         ),
@@ -382,7 +378,6 @@ module redmule_tb
   int channel_valid_count;
   always_ff @(posedge clk_i) begin
     global_counter <= global_counter + 1;
-    // if (global_counter % 200 == 0) $display("[%0t] Cycle: %0d", $time, global_counter);
   end
   always_ff @(posedge clk_i) begin 
     if (!counting && (prev_tcdm_r_data == 'b0) && (tcdm_r_data != 'b0)) begin // rising edge for tcdm_r_data
@@ -540,13 +535,27 @@ module redmule_tb
         if(i_redmule_wrap.i_redmule_top.i_control.out_ready_i && 
            i_redmule_wrap.i_redmule_top.i_control.out_valid_o) begin
           cnt =  cnt+1 ;
-          $display("[Engine] - Engine Output=%04x", i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[0]);
+          $display("[Engine] - Engine Output=0x%04x",i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[0]);
+          // $display("[Engine] - Engine Output=0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, ", 
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[0],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[1],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[2],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[3],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[4],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[5],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[6],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[7],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[8],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[9],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[10],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[11],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[12],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[13],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[14],
+          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[15],
+          //         );
           if(cnt%16 == 0) $display("----------------------------------");
         end
-      end
-    // ----------------------------------------------------------------------- 
-      if(ENABLE_ENGINE_Y_INPUT) begin 
-
       end
     // ----------------------------------------------------------------------- 
       @(posedge clk_i);
