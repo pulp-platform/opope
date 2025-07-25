@@ -14,8 +14,8 @@ set voltage  "0p495"
 set temp     "125"
 # Time units are in ns for GF12
 set CLK_PERIOD {1}
-set REPORTS  "${reports}/${DESIGN}_${corner}_${voltage}v_${temp}c_${CLK_PERIOD}ns_3_1_only_engine"
-set OUT      "${out}/${DESIGN}_${corner}_${voltage}v_${temp}c_${CLK_PERIOD}ns_3_1_only_engine"
+set REPORTS  "${reports}/${DESIGN}_${corner}_${voltage}v_${temp}c_${CLK_PERIOD}ns"
+set OUT      "${out}/${DESIGN}_${corner}_${voltage}v_${temp}c_${CLK_PERIOD}ns"
 
 # Just for reference, the area of an AND cell (AND2_X1N_A7P5PP84TL_C14) is 0.2016 um^2
 
@@ -123,3 +123,4 @@ change_names -rule verilog -hierarchy
 # Write Verilog netlist.
 #-------------------------------------------------------------------------------
 write -hierarchy -format verilog -output ${OUT}/netlist_${DESIGN}.v
+exit

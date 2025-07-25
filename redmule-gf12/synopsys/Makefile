@@ -64,7 +64,7 @@ clean:
 	rm -rf WORK/*
 
 run:
-	synopsys-2020.09 dc_shell -64 -f scripts/$(DESIGN).tcl >& run.log &
+	synopsys-2020.09 dc_shell -64 -f scripts/$(DESIGN).tcl
 
 MODELSIM := "../modelsim"
 clean-power:
