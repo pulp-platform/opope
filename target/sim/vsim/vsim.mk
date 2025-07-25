@@ -13,7 +13,7 @@ VsimCompileScript := $(VsimDir)/compile.$(target).tcl
 VsimWaves := $(VsimDir)/wave.tcl
 
 
-module_vcd ?= 1
+module_vcd ?= 0
 tck       := 2
 
 DEFS := -DCLKPERIOD=$(tck)ns
@@ -59,7 +59,7 @@ hw-build: hw-script
 	cd $(VsimDir); \
 	$(Questa) $(target) -c    \
 	+STIM_INSTR=$(STIM_INSTR) \
-	+STIM_INSTR=$(STIM_DATA)  \
+	+STIM_DATA=$(STIM_DATA)  \
 	+PROB_STALL=$(P_STALL)    \
 	-do 'quit -code [source $(VsimCompileScript)]'
 
@@ -67,6 +67,9 @@ hw-run:
 	cd $(VsimDir);                \
 	$(QUESTA) $(target) $(Tb)_opt \
 	$(VsimFlags)                  \
-	-do "run -a"
+	+STIM_INSTR=$(STIM_INSTR) \
+	+STIM_DATA=$(STIM_DATA)  \
+	+PROB_STALL=$(P_STALL)    \
+  -do "run -a;"
 
 hw-all: hw-clean hw-script hw-build hw-run

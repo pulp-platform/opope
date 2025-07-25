@@ -30,3 +30,7 @@ target/sim/vsim/wlftGFPskt
 !/redmule-gf12/synopsys/scripts/
 !/redmule-gf12/synopsys/scripts/**
 target/sim/verilator
+golden-model/*/scripts/__pycache__/*
+scripts/synth_compile.tcl
+target/sim/vsim/compile.vsim.tcl
+target/sim/vsim/transcript

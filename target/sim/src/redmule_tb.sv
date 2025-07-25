@@ -456,8 +456,7 @@ module redmule_tb
     end
     $display("[TB] %d - VCD dump started", global_counter);
 
-    // $dumpfile(`VCD_DUMP_FILE);
-    $dumpfile("/scratch/dcammarata/ope-engine/redmule-gf12/modelsim/vcd/ope_highperf.vcd");
+    $dumpfile(`VCD_DUMP_FILE);
     $dumpvars(0, i_redmule_wrap);
     $dumpon;
 
@@ -473,8 +472,8 @@ module redmule_tb
 
   initial begin
 
-    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) stim_instr = "/scratch/dcammarata/ope-engine/sw/build/stim_instr.txt";
-    if (!$value$plusargs("STIM_DATA=%s", stim_data)) stim_data = "/scratch/dcammarata/ope-engine/sw/build/stim_data.txt";
+    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) $fatal("Can't find  sw/build/stim_instr.txt");
+    if (!$value$plusargs("STIM_DATA=%s", stim_data)) $fatal("Can't find  sw/build/stim_data.txt");
 
     test_mode = 1'b0;
     core_boot_addr = 32'h1C000084;
@@ -529,7 +528,6 @@ module redmule_tb
     int ENABLE_ENGINE_Y_INPUT = 0;
     int cnt = 0;
     wait (rst_ni);
-    while(i_redmule_wrap.i_redmule_top.i_control.current != i_redmule_wrap.i_redmule_top.i_control.OPE_FINISHED) begin
     // ----------------------------------------------------------------------- 
       if(ENABLE_ENGINE_OUTPUT) begin 
         if(i_redmule_wrap.i_redmule_top.i_control.out_ready_i && 
@@ -559,6 +557,5 @@ module redmule_tb
       end
     // ----------------------------------------------------------------------- 
       @(posedge clk_i);
-    end
   end
 endmodule // redmule_tb
