@@ -18,7 +18,7 @@ make bender
 ```
 source scripts/setup-hwpe.sh
 make golden OP=gemm M=32 N=32 K=32 fp_fmt=FP16
-make hw-clean sw-clean synth-ips hw-script hw-build sw-build hw-run target=vsim
+make sim target=vsim
 ```
 
 

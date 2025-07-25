@@ -58,9 +58,6 @@ hw-script:
 hw-build: hw-script
 	cd $(VsimDir); \
 	$(Questa) $(target) -c    \
-	+STIM_INSTR=$(STIM_INSTR) \
-	+STIM_DATA=$(STIM_DATA)  \
-	+PROB_STALL=$(P_STALL)    \
 	-do 'quit -code [source $(VsimCompileScript)]'
 
 hw-run:
