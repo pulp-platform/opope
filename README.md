@@ -23,7 +23,9 @@ make sim target=vsim
 
 
 To run all the performance logs
+```bash
 make sim-all
+```
 
 # Synthesis
 
