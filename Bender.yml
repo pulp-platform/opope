@@ -27,16 +27,15 @@ sources:
   # OPE
     - rtl/ope_pkg.sv
     - rtl/accumulation_reg.sv
-    - rtl/reg_array_io_wrapper.sv
-    - rtl/ope_engine.sv
-    - rtl/ope_ce.sv
-    - rtl/ope_ctrl.sv
-    - rtl/ope_fma.sv
-    - rtl/ope_sdotp_wrapper.sv
     - rtl/ope_sdotp.sv
+    - rtl/ope_sdotp_wrapper.sv
+    - rtl/ope_fma.sv
+    - rtl/ope_ce.sv
+    - rtl/ope_engine.sv
+    - rtl/ope_tiler.sv
+    - rtl/ope_ctrl.sv
     - rtl/ope_streamer.sv
     - rtl/ope_buffers.sv
-    - rtl/ope_tiler.sv
     - rtl/ope_top.sv
 
     - target: redmule_hwpe
@@ -45,14 +44,7 @@ sources:
 
     - target: redmule_complex
       files:
-        - rtl/redmule_inst_decoder.sv
-        - rtl/redmule_complex.sv
-        - rtl/redmule_complex_wrap.sv
-
-    - target: redmule_test_hwpe_gate
-      files:
-        - redmule-gf12/synopsys/out/ope_sspg_0p495v_125c_1ns_3_1_20250513_1253/netlist_ope.v
-        # - redmule-gf12/small/netlist_ope.v
+        - rtl/ope_inst_decoder.sv
 
     - target: any(redmule_test_complex, redmule_test_hwpe)
       files:
