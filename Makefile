@@ -42,7 +42,6 @@ endif
 
 compile_script_synth ?= $(RootDir)scripts/synth_compile.tcl
 
-INI_PATH  = $(RootDir)modelsim.ini
 WORK_PATH = $(SIM_DIR)/work
 
 # Useful Parameters
