@@ -1,4 +1,4 @@
-# OPE engine - High Performance case
+# O-POPE - WIP
 
 ```bash
 cd golden-model
