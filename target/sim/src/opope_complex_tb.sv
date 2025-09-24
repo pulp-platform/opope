@@ -1,14 +1,14 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 timeunit 1ps; timeprecision 1ps;
 
-module redmule_tb
-  import redmule_pkg::*;
+module opope_tb
+  import opope_pkg::*;
 #(
   parameter TCP = 1.0ns, // clock period, 1 GHz clock
   parameter TA  = 0.2ns, // application time
@@ -23,7 +23,7 @@ module redmule_tb
   localparam int unsigned PROB_STALL = 0;
   localparam int unsigned NC = 1;
   localparam int unsigned ID = 10;
-  localparam int unsigned DW = redmule_pkg::DATA_W;
+  localparam int unsigned DW = opope_pkg::DATA_W;
   localparam int unsigned MP = DW/32;
   localparam int unsigned MEMORY_SIZE = 192*1024;
   localparam int unsigned STACK_MEMORY_SIZE = 192*1024;
@@ -37,7 +37,7 @@ module redmule_tb
   string stim_instr, stim_data;
   logic test_mode;
   logic [31:0] core_boot_addr;
-  logic redmule_busy;
+  logic opope_busy;
 
   hwpe_stream_intf_tcdm instr[0:0]  (.clk(clk_i));
   hwpe_stream_intf_tcdm stack[0:0]  (.clk(clk_i));
@@ -109,7 +109,7 @@ module redmule_tb
     logic [31:0] data;
   } core_data_rsp_t;
 
-  hci_core_intf #(.DW(DW)) redmule_tcdm (.clk(clk_i));
+  hci_core_intf #(.DW(DW)) opope_tcdm (.clk(clk_i));
 
   core_inst_req_t core_inst_req;
   core_inst_rsp_t core_inst_rsp;
@@ -157,20 +157,20 @@ module redmule_tb
   end
 
   for(genvar ii=0; ii<MP; ii++) begin : tcdm_binding
-    assign tcdm[ii].req  = redmule_tcdm.req;
-    assign tcdm[ii].add  = redmule_tcdm.add + ii*4;
-    assign tcdm[ii].wen  = redmule_tcdm.wen;
-    assign tcdm[ii].be   = redmule_tcdm.be[(ii+1)*4-1:ii*4];
-    assign tcdm[ii].data = redmule_tcdm.data[(ii+1)*32-1:ii*32];
+    assign tcdm[ii].req  = opope_tcdm.req;
+    assign tcdm[ii].add  = opope_tcdm.add + ii*4;
+    assign tcdm[ii].wen  = opope_tcdm.wen;
+    assign tcdm[ii].be   = opope_tcdm.be[(ii+1)*4-1:ii*4];
+    assign tcdm[ii].data = opope_tcdm.data[(ii+1)*32-1:ii*32];
     assign tcdm_gnt[ii]     = tcdm[ii].gnt;
     assign tcdm_r_valid[ii] = tcdm[ii].r_valid;
     assign tcdm_r_data[ii]  = tcdm[ii].r_data;
   end
-  assign redmule_tcdm.gnt     = &tcdm_gnt;
-  assign redmule_tcdm.r_data  = { >> {tcdm_r_data} };
-  assign redmule_tcdm.r_valid = &tcdm_r_valid;
-  assign redmule_tcdm.r_opc   = '0;
-  assign redmule_tcdm.r_user  = '0;
+  assign opope_tcdm.gnt     = &tcdm_gnt;
+  assign opope_tcdm.r_data  = { >> {tcdm_r_data} };
+  assign opope_tcdm.r_valid = &tcdm_r_valid;
+  assign opope_tcdm.r_opc   = '0;
+  assign opope_tcdm.r_user  = '0;
 
   assign tcdm[MP].req  = core_data_req.req &
                          (core_data_req.addr[31:24] != '0) &
@@ -248,8 +248,8 @@ module redmule_tb
     .tcdm                ( stack             )
   );
 
-  redmule_complex #(
-    .CoreType           ( redmule_pkg::CV32X  ), // CV32E40P, CV32E40X, IBEX, SNITCH, CVA6
+  opope_complex #(
+    .CoreType           ( opope_pkg::CV32X  ), // CV32E40P, CV32E40X, IBEX, SNITCH, CVA6
     .ID_WIDTH           ( ID                  ),
     .N_CORES            ( NC                  ),
     .DW                 ( DW                  ), // TCDM port dimension (in bits)
@@ -274,7 +274,7 @@ module redmule_tb
     .core_inst_req_o    ( core_inst_req    ),
     .core_data_rsp_i    ( core_data_rsp    ),
     .core_data_req_o    ( core_data_req    ),
-    .tcdm               ( redmule_tcdm     )
+    .tcdm               ( opope_tcdm     )
   );
 
   integer f_x, f_W, f_y, f_tau;
@@ -304,30 +304,30 @@ module redmule_tb
     core_boot_addr = 32'h1C000084;
 
     // Load instruction and data memory
-    $readmemh(stim_instr, redmule_tb.i_dummy_imemory.memory);
-    $readmemh(stim_data,  redmule_tb.i_dummy_dmemory.memory);
+    $readmemh(stim_instr, opope_tb.i_dummy_imemory.memory);
+    $readmemh(stim_data,  opope_tb.i_dummy_dmemory.memory);
 
     // End: WFI + returned != -1 signals end-of-computation
     while(~core_sleep || errors==-1) @(posedge clk_i);
-    cnt_rd = redmule_tb.i_dummy_dmemory.cnt_rd[0] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[1] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[2] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[3] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[4] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[5] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[6] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[7] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[8];
+    cnt_rd = opope_tb.i_dummy_dmemory.cnt_rd[0] +
+             opope_tb.i_dummy_dmemory.cnt_rd[1] +
+             opope_tb.i_dummy_dmemory.cnt_rd[2] +
+             opope_tb.i_dummy_dmemory.cnt_rd[3] +
+             opope_tb.i_dummy_dmemory.cnt_rd[4] +
+             opope_tb.i_dummy_dmemory.cnt_rd[5] +
+             opope_tb.i_dummy_dmemory.cnt_rd[6] +
+             opope_tb.i_dummy_dmemory.cnt_rd[7] +
+             opope_tb.i_dummy_dmemory.cnt_rd[8];
 
-    cnt_wr = redmule_tb.i_dummy_dmemory.cnt_wr[0] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[1] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[2] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[3] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[4] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[5] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[6] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[7] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[8];
+    cnt_wr = opope_tb.i_dummy_dmemory.cnt_wr[0] +
+             opope_tb.i_dummy_dmemory.cnt_wr[1] +
+             opope_tb.i_dummy_dmemory.cnt_wr[2] +
+             opope_tb.i_dummy_dmemory.cnt_wr[3] +
+             opope_tb.i_dummy_dmemory.cnt_wr[4] +
+             opope_tb.i_dummy_dmemory.cnt_wr[5] +
+             opope_tb.i_dummy_dmemory.cnt_wr[6] +
+             opope_tb.i_dummy_dmemory.cnt_wr[7] +
+             opope_tb.i_dummy_dmemory.cnt_wr[8];
 
     $display("[TB] - cnt_rd=%-8d", cnt_rd);
     $display("[TB] - cnt_wr=%-8d", cnt_wr);
@@ -341,4 +341,4 @@ module redmule_tb
     $finish;
   end
 
-endmodule // redmule_tb
+endmodule // opope_tb

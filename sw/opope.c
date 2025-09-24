@@ -1,14 +1,14 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 #include <stdint.h>
-#include "redmule_utils.h"
-#include "archi_redmule.h"
-#include "hal_redmule.h"
+#include "opope_utils.h"
+#include "archi_opope.h"
+#include "hal_opope.h"
 
 #include "x_input.h"
 #include "w_input.h"
@@ -40,11 +40,11 @@ int main() {
 
   int offload_id_tmp, offload_id;
 
-  // Start RedMulE operation and sleeping until the end of computation
+  // Start O-POPE operation and sleeping until the end of computation
   printf("Executing %dx%dx%d GeMM\n", m_size,n_size,k_size);
   printf("Triggering accelerator and going to sleep...\n");
 
-  // Enable RedMulE
+  // Enable O-POPE
   hwpe_cg_enable();
 
   hwpe_soft_clear();
@@ -52,7 +52,7 @@ int main() {
   while ((offload_id_tmp = hwpe_acquire_job()) < 0)
     ;
 
-  redmule_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size, k_size,
+  opope_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size, k_size,
               (uint8_t)gemm_ops, comp_fmt, mem_fmt); // Keep the gemm_ops GEMM for both the sdotp and the fma
   hwpe_trigger_job();
 
@@ -61,15 +61,15 @@ int main() {
   // At the end of accelerator's computation, we resume and check on results
   printf("Resumed!\n");
 
-  // Disable RedMulE
+  // Disable O-POPE
   hwpe_cg_disable();
 
   if (mem_fmt == Float32)
-    errors = redmule32_compare_int(y, golden, m_size * k_size);
+    errors = opope32_compare_int(y, golden, m_size * k_size);
   else if (mem_fmt == Float16)
-    errors = redmule16_compare_int(y, golden, m_size * k_size / 2);
+    errors = opope16_compare_int(y, golden, m_size * k_size / 2);
   // else if (mem_fmt == Float8)
-  //   errors = redmule8_compare_int(y, golden, m_size * k_size / 4);
+  //   errors = opope8_compare_int(y, golden, m_size * k_size / 4);
 
   *(int *)0x80000000 = errors;
 

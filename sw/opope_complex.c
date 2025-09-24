@@ -1,13 +1,13 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 #include <stdint.h>
-#include "redmule_utils.h"
-#include "archi_redmule.h"
+#include "opope_utils.h"
+#include "archi_opope.h"
 #include "tensor_dim.h"
 #include "x_input.h"
 #include "w_input.h"
@@ -78,7 +78,7 @@ int main() {
   // Wait for end of computation
   asm volatile("wfi" ::: "memory");
 
-  errors = redmule16_compare_int(y, golden, m_size * k_size / 2);
+  errors = opope16_compare_int(y, golden, m_size * k_size / 2);
 
   *(int *)0x80000000 = errors;
 

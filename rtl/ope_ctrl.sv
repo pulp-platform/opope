@@ -1,8 +1,8 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 // Andrea Belano <andrea.belano2@unibo.it>
 //
 
@@ -12,7 +12,7 @@ module ope_ctrl
   import hwpe_ctrl_package::*;
 #(
   parameter  int unsigned N_CORES       = 8            ,
-  parameter  int unsigned IO_REGS       = REDMULE_REGS ,
+  parameter  int unsigned IO_REGS       = OPOPE_REGS ,
   parameter  int unsigned ID_WIDTH      = 8            ,
   parameter  int unsigned N_CONTEXT     = 2            ,
   parameter  int unsigned Height        = 4            ,
@@ -149,7 +149,7 @@ module ope_ctrl
     .REGFILE_SCM    ( 0            ),
     .N_CORES        ( N_CORES      ),
     .N_CONTEXT      ( N_CONTEXT    ),
-    .N_IO_REGS      ( REDMULE_REGS ),
+    .N_IO_REGS      ( OPOPE_REGS ),
     .N_GENERIC_REGS ( 6            ),
     .ID_WIDTH       ( ID_WIDTH     )
   ) i_slave         (

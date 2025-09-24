@@ -1,8 +1,8 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 #define Stringify(x) #x
@@ -34,7 +34,7 @@
 
 // Path to the waveform dump
 #ifndef WafeformPath
-#define WafeformPath "./target/sim/verilator/redmule.vcd"
+#define WafeformPath "./target/sim/verilator/opope.vcd"
 #else
 #pragma message("Wave dump is set to: " ToString(WafeformPath))
 #endif
@@ -42,7 +42,7 @@
 
 vluint64_t sim_time = 0;
 
-void dut_reset(Vredmule_tb *dut, vluint64_t &sim_time, vluint64_t rst_time, vluint64_t rst_cycles) {
+void dut_reset(Vopope_tb *dut, vluint64_t &sim_time, vluint64_t rst_time, vluint64_t rst_cycles) {
   dut->rst_ni = 0;
   if (sim_time > rst_time && sim_time < rst_time + rst_cycles) dut->rst_ni = 1;
 
@@ -51,7 +51,7 @@ void dut_reset(Vredmule_tb *dut, vluint64_t &sim_time, vluint64_t rst_time, vlui
   if (sim_time > rst_time + 2 * rst_cycles) dut->rst_ni = 1;
 }
 
-void dut_set_fetch_en(Vredmule_tb *dut, vluint64_t &sim_time, bool value) {
+void dut_set_fetch_en(Vopope_tb *dut, vluint64_t &sim_time, bool value) {
   dut->fetch_enable_i = 0;
   if (sim_time > 100) {
     dut->fetch_enable_i = value;
@@ -61,7 +61,7 @@ void dut_set_fetch_en(Vredmule_tb *dut, vluint64_t &sim_time, bool value) {
 int main(int argc, char **argv, char **env) {
   // Random values used to initialize signals
   Verilated::commandArgs(argc, argv);
-  Vredmule_tb *dut = new Vredmule_tb;
+  Vopope_tb *dut = new Vopope_tb;
 
   Verilated::traceEverOn(true);
   VerilatedVcdC *m_trace = new VerilatedVcdC;

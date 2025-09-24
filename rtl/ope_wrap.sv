@@ -1,8 +1,8 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 `include "hci_helpers.svh"
@@ -82,7 +82,7 @@ hwpe_ctrl_intf_periph #(.ID_WIDTH(ID_WIDTH)) periph (.clk(clk_i));
 logic busy;
 logic [N_CORES-1:0][1:0] evt;
 
-`ifdef REDMULE_HWPE_SYNTH
+`ifdef OPOPE_HWPE_SYNTH
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
       // TCDM port
@@ -188,7 +188,7 @@ ope_top #(
   .N_CORES               ( N_CORES               ),
   .DW                    ( DW                    ),
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
-) i_redmule_top       (
+) i_opope_top       (
   .clk_i              ( clk_i              ),
   .rst_ni             ( rst_ni             ),
   .test_mode_i        ( test_mode_i        ),

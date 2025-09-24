@@ -1,12 +1,12 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
-#ifndef __ARCHI_REDMULE_H__
-#define __ARCHI_REDMULE_H__
+#ifndef __ARCHI_OPOPE_H__
+#define __ARCHI_OPOPE_H__
 
 /*
  * |========================================================================|
@@ -50,33 +50,33 @@
 #define ARCHI_CL_EVT_ACC0 0
 #define ARCHI_CL_EVT_ACC1 1
 
-// RedMulE architecture
+// O-POPE architecture
 #define ADDR_WIDTH 32
 #define DATA_WIDTH 256
-#define REDMULE_FMT 16
+#define OPOPE_FMT 16
 #define ARRAY_HEIGHT 8
 #define PIPE_REGS 3
 #define ARRAY_WIDTH 8 /* Superior limit is ARRAY_HEIGHT*PIPE_REGS */
 
 // Base address
-#define REDMULE_BASE_ADD 0x00100000
+#define OPOPE_BASE_ADD 0x00100000
 
 // Commands
-#define REDMULE_TRIGGER 0x00
-#define REDMULE_ACQUIRE 0x04
-#define REDMULE_FINISHED 0x08
-#define REDMULE_STATUS 0x0C
-#define REDMULE_RUNNING_JOB 0x10
-#define REDMULE_SOFT_CLEAR 0x14
+#define OPOPE_TRIGGER 0x00
+#define OPOPE_ACQUIRE 0x04
+#define OPOPE_FINISHED 0x08
+#define OPOPE_STATUS 0x0C
+#define OPOPE_RUNNING_JOB 0x10
+#define OPOPE_SOFT_CLEAR 0x14
 
 // Registers
-#define REDMULE_REG_OFFS 0x40
-#define REDMULE_REG_X_PTR 0x00
-#define REDMULE_REG_W_PTR 0x04
-#define REDMULE_REG_Z_PTR 0x08
-#define REDMULE_MCFG0_PTR 0x0C
-#define REDMULE_MCFG1_PTR 0x10
-#define REDMULE_ARITH_PTR 0x14
+#define OPOPE_REG_OFFS 0x40
+#define OPOPE_REG_X_PTR 0x00
+#define OPOPE_REG_W_PTR 0x04
+#define OPOPE_REG_Z_PTR 0x08
+#define OPOPE_MCFG0_PTR 0x0C
+#define OPOPE_MCFG1_PTR 0x10
+#define OPOPE_ARITH_PTR 0x14
 
 // OPs definition
 #define MATMUL 0x0

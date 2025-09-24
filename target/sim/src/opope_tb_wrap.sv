@@ -1,13 +1,13 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 timeunit 1ps; timeprecision 1ps;
 
-module redmule_tb_wrap;
+module opope_tb_wrap;
 import ope_pkg::*;
 
   localparam TCP = 2.0ns; // clock period, 1 GHz clock
@@ -16,11 +16,11 @@ import ope_pkg::*;
 
   logic clk, rst_n, fetch_enable;
 
-  redmule_tb #(
+  opope_tb #(
     .TCP ( TCP ),
     .TA  ( TA  ),
     .TT  ( TT  ) 
-  ) i_redmule_tb (
+  ) i_opope_tb (
     .clk_i          ( clk          ),
     .rst_ni         ( rst_n        ),
     .fetch_enable_i ( fetch_enable )
@@ -57,4 +57,4 @@ import ope_pkg::*;
 
   end
 
-endmodule // redmule_tb_wrap
+endmodule // opope_tb_wrap

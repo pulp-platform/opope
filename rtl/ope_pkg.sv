@@ -1,8 +1,8 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 import fpnew_pkg::*;
@@ -20,7 +20,7 @@ package ope_pkg;
   parameter int unsigned            NumByte      = MemDw/8;
   parameter int unsigned            ADDR_W       = hci_package::DEFAULT_AW;
   parameter int unsigned            DATAW        = DATA_W - MemDw;
-  parameter int unsigned            REDMULE_REGS = 22;
+  parameter int unsigned            OPOPE_REGS = 22;
   parameter int unsigned            N_CONTEXT    = 2;
   parameter int unsigned            PIPE_REGS    = 4;
   parameter int unsigned            TOT_DEPTH    = DATAW/BITW;
@@ -98,19 +98,19 @@ package ope_pkg;
   parameter bit[6:0] MARITH = 7'b0101011; // 0x2B
   parameter bit[6:0] RVCSR  = 7'b1110011; // 0x73 -> RISC-V CSR instruction opcode
 
-  /* The CSRs below are not really present in the current RedMulE version. The following
+  /* The CSRs below are not really present in the current O-POPE version. The following
      enum is here to allow future development where it might be useful to write the
      configuration registers through standard `csrw` instructions coming from the core.
      The CSRs values are chosen following the custom read/write already available in the
      RISC-V specifications. */
   typedef enum logic[11:0] {
-    CSR_REDMULE_X_ADDR = 12'h800,
-    CSR_REDMULE_W_ADDR = 12'h801,
-    CSR_REDMULE_Z_ADDR = 12'h802,
-    CSR_REDMULE_MCFIG0 = 12'h803,
-    CSR_REDMULE_MCFIG1 = 12'h804,
-    CSR_REDMULE_MACFG  = 12'h805
-  } redmule_csr_num_e;
+    CSR_OPOPE_X_ADDR = 12'h800,
+    CSR_OPOPE_W_ADDR = 12'h801,
+    CSR_OPOPE_Z_ADDR = 12'h802,
+    CSR_OPOPE_MCFIG0 = 12'h803,
+    CSR_OPOPE_MCFIG1 = 12'h804,
+    CSR_OPOPE_MACFG  = 12'h805
+  } opope_csr_num_e;
 
   parameter int unsigned NumStreamSources     = 3; // X, W, Y
   parameter int unsigned XsourceStreamId      = 0;
@@ -301,7 +301,7 @@ package ope_pkg;
     logic        gemm_selection;
     logic [31:0] n_k_m;
     logic [31:0] k_m;
-  } redmule_config_t;
+  } opope_config_t;
 
   typedef struct packed {
     logic                   [2:0] fma_is_boxed;
@@ -374,7 +374,7 @@ package ope_pkg;
     logic [DATA_W-1:0] data;
     logic lrdy;
     logic user;
-  } redmule_default_data_req_t;
+  } opope_default_data_req_t;
 
   typedef struct packed {
     logic gnt;
@@ -382,7 +382,7 @@ package ope_pkg;
     logic [DATA_W-1:0] r_data;
     logic r_opc;
     logic r_user;
-  } redmule_default_data_rsp_t;
+  } opope_default_data_rsp_t;
 
 
 

@@ -1,9 +1,9 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
-// George Pagonis  <gpagonis@student.ethz.ch>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 
 `include "hci_helpers.svh"
 
@@ -35,12 +35,12 @@ module ope_top
   input  logic                    test_mode_i,
   output logic                    busy_o     ,
   output logic [N_CORES-1:0][1:0] evt_o      ,
-`ifdef TARGET_REDMULE_COMPLEX
+`ifdef TARGET_OPOPE_COMPLEX
   cv32e40x_if_xif.coproc_issue    xif_issue_if_i,
   cv32e40x_if_xif.coproc_result   xif_result_if_o,
   cv32e40x_if_xif.coproc_compressed xif_compressed_if_i,
   cv32e40x_if_xif.coproc_mem        xif_mem_if_o,
-`elsif TARGET_REDMULE_HWPE
+`elsif TARGET_OPOPE_HWPE
   // Periph slave port for the controller side
   hwpe_ctrl_intf_periph.slave periph,
 `endif
@@ -84,14 +84,14 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk
 /*--------------------------------------------------------------*/
 /* |                   Start Configuration                    | */
 /*--------------------------------------------------------------*/
-`ifdef TARGET_REDMULE_HWPE
+`ifdef TARGET_OPOPE_HWPE
   /* If there is no Xif we directly plug the
      control port into the hwpe-slave device */
   assign start_cfg = ((periph.req) &&
                       (periph.add[7:0] == 'h54) &&
                       (!periph.wen) && (periph.gnt)) ? 1'b1 : 1'b0;
 
-`elsif TARGET_REDMULE_COMPLEX
+`elsif TARGET_OPOPE_COMPLEX
   hwpe_ctrl_intf_periph #( .ID_WIDTH  (ID_WIDTH) ) periph ( .clk(clk_i) );
   /* If there is the Xif, we pass through the
      instruction decoder and then enter into
@@ -211,7 +211,7 @@ ope_engine     #(
 
 ope_ctrl        #(
   .N_CORES            ( N_CORES        ),
-  .IO_REGS            ( REDMULE_REGS   ),
+  .IO_REGS            ( OPOPE_REGS   ),
   .ID_WIDTH           ( ID_WIDTH       ),
   .N_CONTEXT          ( NumContext     ),
   .Height             ( Height         ),

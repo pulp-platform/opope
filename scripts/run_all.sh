@@ -85,10 +85,15 @@ run_config() {
         make sim target=vsim gui=0 &>> "$LOGFILE"
         extract_info
         ((total_count++))
+        if [ -n "$cycles" ] && [ "$cycles" -ne 0 ]; then
+          eff=$(echo "scale=2; $size * $size * $size * 100 / ($HEIGHT * $HEIGHT * $cycles)" | bc -l)
+        else
+          eff="NA"
+        fi
         SUMMARY_LINES+=(
-          "$(printf "%2s x %2s   %-10s %3d %3d %3d   %2d     %d   %-8s  %7s  %6s" \
-          "$HEIGHT" "$HEIGHT" "$fp" "$size" "$size" "$size" "$FIFO" "$mux" "$status" "${cycles:--}" "${memreq:--}")"
-        ) 
+          "$(printf "%2s x %2s   %-10s %3d %3d %3d   %2d     %d   %-8s  %7s  %6s  %7s" \
+          "$HEIGHT" "$HEIGHT" "$fp" "$size" "$size" "$size" "$FIFO" "$mux" "$status" "${cycles:--}" "${memreq:--}" "$eff")"
+        )
       done
     done
   done
@@ -117,11 +122,11 @@ success_count=0
 fail_count=0
 declare -a SUMMARY_LINES
 # Header: Target, M, N, K, FIFO, MUX, Status,   Cycles,    MemReq
-SUMMARY_LINES=(" Engine    Target     M   N   K   FIFO   MUX   Status       Cycles   MemReq")
-SUMMARY_LINES+=("──────────────────────────────────────────────────────────────────────────")
+SUMMARY_LINES=(" Engine    Target     M   N   K   FIFO   MUX   Status       Cycles   MemReq   Util ")
+SUMMARY_LINES+=("──────────────────────────────────────────────────────────────────────────────────")
 # ─── Simulations ────────────────────────────────────────────────────────────────
 sed -i '70s/.*/  -do "run 2 ms; quit -f;"/' "$MAKE_PATH/target/sim/vsim/vsim.mk"
-sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/redmule_tb.sv"
+sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
 sed -i '21s/.*/ localparam int unsigned  MUX_SH_n    = 1/' "$MAKE_PATH/rtl/ope_engine.sv"
 for FIFO in "${FIFOS[@]}"; do
   for HEIGHT in "${HEIGHTS[@]}"; do
@@ -152,7 +157,7 @@ echo -e "Error rate: $(printf "%.2f%%" "$(echo "100 * $fail_count / $total_count
 
 ### DEFAULT CONFIGURATION
 sed -i '70s|.*|  -do "run -a;"|' "$MAKE_PATH/target/sim/vsim/vsim.mk"
-sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/redmule_tb.sv"
+sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
 sed -i '14s/.*/  parameter int unsigned            ARRAY_HEIGHT = 8;/' "$MAKE_PATH/rtl/ope_pkg.sv"
 sed -i '15s/.*/  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;/' "$MAKE_PATH/rtl/ope_pkg.sv"
 sed -i "29s|.*|  parameter fpnew_pkg::fmt_logic_t  FpFmtConfig  = 6'b001100;|" "$MAKE_PATH/rtl/ope_pkg.sv"

@@ -1,8 +1,8 @@
-# Copyright 2023 ETH Zurich and University of Bologna.
+# Copyright 2025 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Yvan Tortorella <yvan.tortorella@unibo.it>
+# Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 #
 # Top-level Makefile
 
@@ -34,10 +34,10 @@ include bender_common.mk
 include bender_sim.mk
 include bender_synth.mk
 
-ifeq ($(REDMULE_COMPLEX),1)
-	TEST_SRCS := $(SW)/redmule_complex.c
+ifeq ($(OPOPE_COMPLEX),1)
+	TEST_SRCS := $(SW)/opope_complex.c
 else
-	TEST_SRCS := $(SW)/redmule.c
+	TEST_SRCS := $(SW)/opope.c
 endif
 
 compile_script_synth ?= $(RootDir)scripts/synth_compile.tcl

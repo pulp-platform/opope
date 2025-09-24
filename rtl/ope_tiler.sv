@@ -1,8 +1,8 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 // Francesco Conti <f.conti@unibo.it>
 
 module ope_tiler
@@ -25,7 +25,7 @@ logic shift;
 assign shift = (BITW==32 & reg_file_i.hwpe_params[MACFG][ 9: 7]==Float16) |
                (BITW==16 & reg_file_i.hwpe_params[MACFG][ 9: 7]==Float8 );
 
-redmule_config_t config_d, config_q;
+opope_config_t config_d, config_q;
 
 always_ff @(posedge clk_i, negedge rst_ni) begin: clock_gate_enabler
   if (~rst_ni) begin
@@ -168,10 +168,10 @@ always_ff @(posedge clk_int or negedge rst_ni) begin
     valid_o <= n_k_m_valid;
 end
 
-// re-encode in older RedMulE regfile map
+// re-encode in older O-POPE regfile map
 assign reg_file_o.generic_params = '0;
 assign reg_file_o.ext_data = '0;
-assign reg_file_o.hwpe_params[REGFILE_N_MAX_IO_REGS-1:REDMULE_REGS] = '0;
+assign reg_file_o.hwpe_params[REGFILE_N_MAX_IO_REGS-1:OPOPE_REGS] = '0;
 assign reg_file_o.hwpe_params[      X_ADDR]        = config_d.x_addr; // do not register (these are straight from regfile)
 assign reg_file_o.hwpe_params[      W_ADDR]        = config_d.w_addr; // do not register (these are straight from regfile)
 assign reg_file_o.hwpe_params[      Z_ADDR]        = config_d.z_addr; // do not register (these are straight from regfile)

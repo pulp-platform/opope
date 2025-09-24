@@ -1,8 +1,8 @@
-# Copyright 2023 ETH Zurich and University of Bologna.
+# Copyright 2025 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Yvan Tortorella <yvan.tortorella@unibo.it>
+# Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 #
 
 export BENDER_DIR=$(pwd)/hw/bender
@@ -19,4 +19,4 @@ export VerilatorRoot=/usr/pack/verilator-5.006-zr/verilator-5.006
 export Gcc=
 export XLEN=32
 export XTEN=imc
-export REDMULE_COMPLEX=0
+export OPOPE_COMPLEX=0

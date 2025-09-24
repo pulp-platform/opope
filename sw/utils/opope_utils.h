@@ -1,20 +1,20 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 #include "tinyprintf.h"
 #include "tensor_dim.h"
 
-#ifndef REDMULE_UTILS_H
-#define REDMULE_UTILS_H
+#ifndef OPOPE_UTILS_H
+#define OPOPE_UTILS_H
 
  //Expand the error tolerance because the 24-bit manissa
 // #define DEBUG
 
-int redmule32_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
+int opope32_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
   int errors = 0;
   int error;
   for (int i = 0; i < len; i++) {
@@ -40,7 +40,7 @@ int redmule32_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
   return errors;
 }
 
-int redmule16_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
+int opope16_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
   uint32_t actual_word = 0;
   uint16_t actual_MSHWord, actual_LSHWord;
   uint32_t golden_word = 0;
@@ -109,7 +109,7 @@ int redmule16_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
 }
 
 /*
-int redmule8_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
+int opope8_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
   uint32_t actual_word = 0;
   uint8_t actual_Byte0, actual_Byte1, actual_Byte2, actual_Byte3;
   uint32_t golden_word = 0;

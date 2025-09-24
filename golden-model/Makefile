@@ -1,10 +1,10 @@
-# Copyright 2023 ETH Zurich and University of Bologna.
+# Copyright 2025 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Yvan Tortorella <yvan.tortorella@unibo.it>
+# Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 #
-# RedMulE Golden Model Makefile
+# O-POPE Golden Model Makefile
 
 SHELL   := /bin/bash
 CUR_DIR := $(shell pwd)

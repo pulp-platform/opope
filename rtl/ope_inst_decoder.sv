@@ -1,8 +1,8 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 module ope_inst_decoder
@@ -47,9 +47,9 @@ typedef enum logic [1:0] {
   Idle,
   WriteCfg,
   Trigger
-} redmule_instr_cfg_state_e;
+} opope_instr_cfg_state_e;
 
-redmule_instr_cfg_state_e current, next;
+opope_instr_cfg_state_e current, next;
 
 // Xif static binding
 assign xif_compressed_if_i.compressed_ready = 1'b0;
@@ -111,7 +111,7 @@ always_comb begin: opcode_decoder
       end
 
       /* The core will try to offload all CSR instructions to the coupled co-processor, so we need to
-         check if the offloaded CSR instruction tries to access one of the CSRs available in RedMulE or
+         check if the offloaded CSR instruction tries to access one of the CSRs available in O-POPE or
          not. If not, we need to raise the issue_ready to signal that we received the offload request,
          but keep the issue_resp.accept low to signal that we are not accepting the instruction.
          For furhter details, look at the CORE-V Extension Interface documentation
@@ -119,8 +119,8 @@ always_comb begin: opcode_decoder
          and at the following issue: https://github.com/openhwgroup/cv32e40x/issues/945. */
       RVCSR: begin
       xif_issue_if_i.issue_ready = 1'b1;
-        if (xif_issue_if_i.issue_req.instr[31:20] <= CSR_REDMULE_MACFG &&
-            xif_issue_if_i.issue_req.instr[31:20] >= CSR_REDMULE_MACFG) begin
+        if (xif_issue_if_i.issue_req.instr[31:20] <= CSR_OPOPE_MACFG &&
+            xif_issue_if_i.issue_req.instr[31:20] >= CSR_OPOPE_MACFG) begin
           xif_issue_if_i.issue_resp.accept = 1'b1;
         end else begin
           xif_issue_if_i.issue_resp.accept = 1'b0;

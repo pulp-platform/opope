@@ -1,17 +1,17 @@
-# Copyright 2023 ETH Zurich and University of Bologna.
+# Copyright 2025 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Yvan Tortorella <yvan.tortorella@unibo.it>
+# Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 #
 
 common_targs += -t cv32e40p_exclude_tracer
 
-ifeq ($(REDMULE_COMPLEX),1)
-	common_targs += -t redmule_complex
+ifeq ($(OPOPE_COMPLEX),1)
+	common_targs += -t opope_complex
 	common_targs += -e cv32e40p
 else
-	common_targs += -t redmule_hwpe
+	common_targs += -t opope_hwpe
 	common_targs += -e cv32e40x
 endif
 

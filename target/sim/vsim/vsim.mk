@@ -1,13 +1,13 @@
-# Copyright 2023 ETH Zurich and University of Bologna.
+# Copyright 2025 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Yvan Tortorella <yvan.tortorella@unibo.it>
+# Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 #
 # Makefragment for Verilator simulation.
 
 Questa ?=
-Module := redmule
+Module := opope
 VsimDir := $(SimDir)/$(target)
 VsimCompileScript := $(VsimDir)/compile.$(target).tcl
 VsimWaves := $(VsimDir)/wave.do
@@ -23,13 +23,13 @@ DEFS += -DVCD_DUMP
 DEFS += -DVCD_DUMP_FILE=\"$(vcd_file)\"
 endif
 
-Tb := redmule_tb_wrap
+Tb := opope_tb_wrap
 CompileFlags := +acc -permissive -suppress 2583 -suppress 13314
 
-ifeq ($(REDMULE_COMPLEX),1)
-	TbType := redmule_complex_tb
+ifeq ($(OPOPE_COMPLEX),1)
+	TbType := opope_complex_tb
 else
-	TbType := redmule_tb
+	TbType := opope_tb
 endif
 
 ifeq ($(gui),1)

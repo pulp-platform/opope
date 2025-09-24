@@ -155,7 +155,7 @@ module ope_sdotp_wrapper #(
     .AuxType            ( AuxType        ),
     .StochasticRndImplementation ( StochasticRndImplementation ),
     .Stallable          ( Stallable      )
-  ) i_redmule_sdotp (
+  ) i_opope_sdotp (
     .clk_i,
     .rst_ni,
     .sdotp_hart_id_i,

@@ -1,15 +1,15 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 //
-// Yvan Tortorella <yvan.tortorella@unibo.it>
+// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
 timeunit 1ps; timeprecision 1ps;
 
 import hci_package::*;
 
-module redmule_tb
+module opope_tb
   import ope_pkg::*;
 #(
   parameter TCP = 2.0ns, // clock period, 1 GHz clock
@@ -44,7 +44,7 @@ module redmule_tb
   string stim_instr, stim_data;
   logic test_mode;
   logic [31:0] core_boot_addr;
-  logic redmule_busy;
+  logic opope_busy;
 
   hwpe_stream_intf_tcdm instr[0:0]  (.clk(clk_i));
   hwpe_stream_intf_tcdm stack[0:0]  (.clk(clk_i));
@@ -208,12 +208,12 @@ module redmule_tb
     .DW                 ( DW                 ),
     .MP                 ( DW/32              ),
     .EW                 ( EW                 )
-  ) i_redmule_wrap      (
+  ) i_opope_wrap      (
     .clk_i              ( clk_i              ),
     .rst_ni             ( rst_ni             ),
     .test_mode_i        ( test_mode          ),
     .evt_o              ( evt                ),
-    .busy_o             ( redmule_busy       ),
+    .busy_o             ( opope_busy       ),
     .tcdm_req_o         ( tcdm_req           ),
     .tcdm_add_o         ( tcdm_add           ),
     .tcdm_wen_o         ( tcdm_wen           ),
@@ -404,14 +404,14 @@ module redmule_tb
   bit periphery_counting = 0;
   
   logic check_start_config, prev_check_start_config;
-  logic prev_finished_redmule, finished_redmule;
+  logic prev_finished_opope, finished_opope;
   
   assign check_start_config = (periph_req && (periph_add[7:0] == 'h54) && (!periph_wen) && (periph_gnt)) ? 1'b1: 1'b0;
 
-`ifdef REDMULE_HWPE_SYNTH
-  assign finished_redmule = i_redmule_wrap.i_redmule_top.i_control.cntrl_scheduler_finished_;
+`ifdef OPOPE_HWPE_SYNTH
+  assign finished_opope = i_opope_wrap.i_opope_top.i_control.cntrl_scheduler_finished_;
 `else
-  assign finished_redmule = i_redmule_wrap.i_redmule_top.i_control.cntrl_scheduler.finished;
+  assign finished_opope = i_opope_wrap.i_opope_top.i_control.cntrl_scheduler.finished;
 `endif
 
   always_ff @(posedge clk_i) begin 
@@ -419,13 +419,13 @@ module redmule_tb
       periphery_counting <= 1;
       periphery_start_counter <= global_counter;
     end
-    if (periphery_counting &&(prev_finished_redmule == 1'b0) && (finished_redmule)) begin 
+    if (periphery_counting &&(prev_finished_opope == 1'b0) && (finished_opope)) begin 
       periphery_counting <= 0;
       periphery_end_counter <= global_counter;
     end
 
   prev_check_start_config <= check_start_config;
-  prev_finished_redmule <= finished_redmule;
+  prev_finished_opope <= finished_opope;
   end
 
 
@@ -457,10 +457,10 @@ module redmule_tb
     $display("[TB] %d - VCD dump started", global_counter);
 
     $dumpfile(`VCD_DUMP_FILE);
-    $dumpvars(0, i_redmule_wrap);
+    $dumpvars(0, i_opope_wrap);
     $dumpon;
 
-    while (!(finished_redmule)) begin
+    while (!(finished_opope)) begin
       @(posedge clk_i);
     end
     $display("[TB] %d - VCD dump finished", global_counter);
@@ -479,29 +479,29 @@ module redmule_tb
     core_boot_addr = 32'h1C000084;
 
     // Load instruction and data memory
-    $readmemh(stim_instr, redmule_tb.i_dummy_imemory.memory);
-    $readmemh(stim_data,  redmule_tb.i_dummy_dmemory.memory);
+    $readmemh(stim_instr, opope_tb.i_dummy_imemory.memory);
+    $readmemh(stim_data,  opope_tb.i_dummy_dmemory.memory);
 
     // End: WFI + returned != -1 signals end-of-computation
     while(~core_sleep || errors==-1) @(posedge clk_i);
-    cnt_rd = redmule_tb.i_dummy_dmemory.cnt_rd[0] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[1] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[2] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[3] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[4] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[5] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[6] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[7] +
-             redmule_tb.i_dummy_dmemory.cnt_rd[8];
-    cnt_wr = redmule_tb.i_dummy_dmemory.cnt_wr[0] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[1] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[2] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[3] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[4] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[5] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[6] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[7] +
-             redmule_tb.i_dummy_dmemory.cnt_wr[8];
+    cnt_rd = opope_tb.i_dummy_dmemory.cnt_rd[0] +
+             opope_tb.i_dummy_dmemory.cnt_rd[1] +
+             opope_tb.i_dummy_dmemory.cnt_rd[2] +
+             opope_tb.i_dummy_dmemory.cnt_rd[3] +
+             opope_tb.i_dummy_dmemory.cnt_rd[4] +
+             opope_tb.i_dummy_dmemory.cnt_rd[5] +
+             opope_tb.i_dummy_dmemory.cnt_rd[6] +
+             opope_tb.i_dummy_dmemory.cnt_rd[7] +
+             opope_tb.i_dummy_dmemory.cnt_rd[8];
+    cnt_wr = opope_tb.i_dummy_dmemory.cnt_wr[0] +
+             opope_tb.i_dummy_dmemory.cnt_wr[1] +
+             opope_tb.i_dummy_dmemory.cnt_wr[2] +
+             opope_tb.i_dummy_dmemory.cnt_wr[3] +
+             opope_tb.i_dummy_dmemory.cnt_wr[4] +
+             opope_tb.i_dummy_dmemory.cnt_wr[5] +
+             opope_tb.i_dummy_dmemory.cnt_wr[6] +
+             opope_tb.i_dummy_dmemory.cnt_wr[7] +
+             opope_tb.i_dummy_dmemory.cnt_wr[8];
     $display("[TB] - cnt_rd= %-8d", cnt_rd);
     $display("[TB] - cnt_wr= %-8d", cnt_wr);
     if(errors != 0) begin
@@ -530,27 +530,27 @@ module redmule_tb
     wait (rst_ni);
     // ----------------------------------------------------------------------- 
       if(ENABLE_ENGINE_OUTPUT) begin 
-        if(i_redmule_wrap.i_redmule_top.i_control.out_ready_i && 
-           i_redmule_wrap.i_redmule_top.i_control.out_valid_o) begin
+        if(i_opope_wrap.i_opope_top.i_control.out_ready_i && 
+           i_opope_wrap.i_opope_top.i_control.out_valid_o) begin
           cnt =  cnt+1 ;
-          $display("[Engine] - Engine Output=0x%04x",i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[0]);
+          $display("[Engine] - Engine Output=0x%04x",i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[0]);
           // $display("[Engine] - Engine Output=0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, ", 
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[0],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[1],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[2],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[3],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[4],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[5],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[6],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[7],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[8],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[9],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[10],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[11],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[12],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[13],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[14],
-          //         i_redmule_wrap.i_redmule_top.i_ope_engine.z_output_o[15],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[0],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[1],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[2],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[3],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[4],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[5],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[6],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[7],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[8],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[9],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[10],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[11],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[12],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[13],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[14],
+          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[15],
           //         );
           if(cnt%16 == 0) $display("----------------------------------");
         end
@@ -558,4 +558,4 @@ module redmule_tb
     // ----------------------------------------------------------------------- 
       @(posedge clk_i);
   end
-endmodule // redmule_tb
+endmodule // opope_tb
