@@ -85,13 +85,15 @@ run_config() {
         make sim target=vsim gui=0 &>> "$LOGFILE"
         extract_info
         ((total_count++))
-        if [ -n "$cycles" ] && [ "$cycles" -ne 0 ]; then
+        if   [ -n "$cycles" ] && [ "$cycles" -ne 0 ] && { [ "$fp" = "FP8FP16" ] || [ "$fp" = "FP16FP32" ]; }; then
+          eff=$(echo "scale=2; $size * $size * $size * 50 / ($HEIGHT * $HEIGHT * $cycles)" | bc -l)
+        elif [ -n "$cycles" ] && [ "$cycles" -ne 0 ] && { [ "$fp" = "FP16" ] || [ "$fp" = "FP32" ]; }; then
           eff=$(echo "scale=2; $size * $size * $size * 100 / ($HEIGHT * $HEIGHT * $cycles)" | bc -l)
         else
           eff="NA"
         fi
         SUMMARY_LINES+=(
-          "$(printf "%2s x %2s   %-10s %3d %3d %3d   %2d     %d   %-8s  %7s  %6s  %7s" \
+          "$(printf "%2s x %2s   %-10s %3d %3d %3d   %2d     %d   %-8s  %7s  %6s   %7s" \
           "$HEIGHT" "$HEIGHT" "$fp" "$size" "$size" "$size" "$FIFO" "$mux" "$status" "${cycles:--}" "${memreq:--}" "$eff")"
         )
       done
