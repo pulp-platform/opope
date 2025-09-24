@@ -64,18 +64,18 @@ run_config() {
   date '+%Y-%m-%d %H:%M:%S' &>> "$LOGFILE"
 
   # Update RTL files
-  sed -i "14s|.*|  parameter int unsigned            ARRAY_HEIGHT = $HEIGHT;|" "$MAKE_PATH/rtl/ope_pkg.sv"
-  sed -i "15s|.*|  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::$FPFORMAT;|" "$MAKE_PATH/rtl/ope_pkg.sv"
-  sed -i "29s|.*|  parameter fpnew_pkg::fmt_logic_t  FpFmtConfig  = $FPFMTCONFIG;|" "$MAKE_PATH/rtl/ope_pkg.sv"
-  sed -i "41s|.*|  localparam int unsigned X_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/ope_buffers.sv"
-  sed -i "42s|.*|  localparam int unsigned W_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/ope_buffers.sv"
-  sed -i "43s|.*|  localparam int unsigned Y_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/ope_buffers.sv"
-  sed -i "44s|.*|  localparam int unsigned Z_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/ope_buffers.sv"
+  sed -i "14s|.*|  parameter int unsigned            ARRAY_HEIGHT = $HEIGHT;|" "$MAKE_PATH/rtl/opope_pkg.sv"
+  sed -i "15s|.*|  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::$FPFORMAT;|" "$MAKE_PATH/rtl/opope_pkg.sv"
+  sed -i "29s|.*|  parameter fpnew_pkg::fmt_logic_t  FpFmtConfig  = $FPFMTCONFIG;|" "$MAKE_PATH/rtl/opope_pkg.sv"
+  sed -i "41s|.*|  localparam int unsigned X_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/opope_buffers.sv"
+  sed -i "42s|.*|  localparam int unsigned W_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/opope_buffers.sv"
+  sed -i "43s|.*|  localparam int unsigned Y_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/opope_buffers.sv"
+  sed -i "44s|.*|  localparam int unsigned Z_FIFO_DEPTH = $FIFO;|" "$MAKE_PATH/rtl/opope_buffers.sv"
 
 
   for mux in "${READOUT[@]}"; do
-    if [ "$mux" -eq 1 ]; then sed -i "21s|.*| localparam int unsigned  MUX_SH_n    = 1|" "$MAKE_PATH/rtl/ope_engine.sv"
-    else                      sed -i "21s|.*| localparam int unsigned  MUX_SH_n    = 0|" "$MAKE_PATH/rtl/ope_engine.sv"
+    if [ "$mux" -eq 1 ]; then sed -i "21s|.*| localparam int unsigned  MUX_SH_n    = 1|" "$MAKE_PATH/rtl/opope_engine.sv"
+    else                      sed -i "21s|.*| localparam int unsigned  MUX_SH_n    = 0|" "$MAKE_PATH/rtl/opope_engine.sv"
     fi
 
     for fp in "${fp_combos[@]}"; do
@@ -129,7 +129,7 @@ SUMMARY_LINES+=("─────────────────────
 # ─── Simulations ────────────────────────────────────────────────────────────────
 sed -i '70s/.*/  -do "run 2 ms; quit -f;"/' "$MAKE_PATH/target/sim/vsim/vsim.mk"
 sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
-sed -i '21s/.*/ localparam int unsigned  MUX_SH_n    = 1/' "$MAKE_PATH/rtl/ope_engine.sv"
+sed -i '21s/.*/ localparam int unsigned  MUX_SH_n    = 1/' "$MAKE_PATH/rtl/opope_engine.sv"
 for FIFO in "${FIFOS[@]}"; do
   for HEIGHT in "${HEIGHTS[@]}"; do
     for ACC in "${ACCS[@]}"; do
@@ -160,13 +160,13 @@ echo -e "Error rate: $(printf "%.2f%%" "$(echo "100 * $fail_count / $total_count
 ### DEFAULT CONFIGURATION
 sed -i '70s|.*|  -do "run -a;"|' "$MAKE_PATH/target/sim/vsim/vsim.mk"
 sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
-sed -i '14s/.*/  parameter int unsigned            ARRAY_HEIGHT = 8;/' "$MAKE_PATH/rtl/ope_pkg.sv"
-sed -i '15s/.*/  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;/' "$MAKE_PATH/rtl/ope_pkg.sv"
-sed -i "29s|.*|  parameter fpnew_pkg::fmt_logic_t  FpFmtConfig  = 6'b001100;|" "$MAKE_PATH/rtl/ope_pkg.sv"
-sed -i '41s/.*/  localparam int unsigned X_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/ope_buffers.sv"
-sed -i '42s/.*/  localparam int unsigned W_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/ope_buffers.sv"
-sed -i '43s/.*/  localparam int unsigned Y_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/ope_buffers.sv"
-sed -i '44s/.*/  localparam int unsigned Z_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/ope_buffers.sv"
-sed -i '21s/.*/ localparam int unsigned  MUX_SH_n    = 1/' "$MAKE_PATH/rtl/ope_engine.sv"
+sed -i '14s/.*/  parameter int unsigned            ARRAY_HEIGHT = 8;/' "$MAKE_PATH/rtl/opope_pkg.sv"
+sed -i '15s/.*/  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;/' "$MAKE_PATH/rtl/opope_pkg.sv"
+sed -i "29s|.*|  parameter fpnew_pkg::fmt_logic_t  FpFmtConfig  = 6'b001100;|" "$MAKE_PATH/rtl/opope_pkg.sv"
+sed -i '41s/.*/  localparam int unsigned X_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/opope_buffers.sv"
+sed -i '42s/.*/  localparam int unsigned W_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/opope_buffers.sv"
+sed -i '43s/.*/  localparam int unsigned Y_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/opope_buffers.sv"
+sed -i '44s/.*/  localparam int unsigned Z_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/opope_buffers.sv"
+sed -i '21s/.*/ localparam int unsigned  MUX_SH_n    = 1/' "$MAKE_PATH/rtl/opope_engine.sv"
 cd $CURRENT_DIR
 echo "=== All done ==="

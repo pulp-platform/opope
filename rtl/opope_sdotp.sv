@@ -15,9 +15,6 @@
 //          Stefan Mach <smach@iis.ee.ethz.ch>
 //          Gianna Paulin <pauling@iis.ee.ethz.ch>
 
-
-// George Pagonis : Added stallable and reg_enable_i
-
 // This unit can be used to compute the following operations:
 // - EXSDOTP: expanding dot product with accumulation
 //             (op_a * op_b) + (op_c * op_d) + op_e
@@ -44,7 +41,7 @@
 
 `include "common_cells/registers.svh"
 
-module ope_sdotp #(
+module opope_sdotp #(
   // One-hot config string: | FP32 | FP64 | FP16 | FP8 | FP16ALT | FP8ALT |
   parameter fpnew_pkg::fmt_logic_t   SrcDotpFpFmtConfig = '1, // FP32 and wider formats are not allowed
                                                               // Supported source formats (FP8, FP8ALT, FP16, FP16ALT)

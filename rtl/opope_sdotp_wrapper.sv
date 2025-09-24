@@ -19,7 +19,7 @@
 
 `include "common_cells/registers.svh"
 
-module ope_sdotp_wrapper #(
+module opope_sdotp_wrapper #(
   parameter int unsigned             LaneWidth   = 64,
   parameter fpnew_pkg::fmt_logic_t   FpFmtConfig = '1,
   parameter int unsigned             NumPipeRegs = 0,
@@ -146,7 +146,7 @@ module ope_sdotp_wrapper #(
     end
   end
 
-  ope_sdotp #(
+  opope_sdotp #(
     .SrcDotpFpFmtConfig ( FpSrcFmtConfig ), // FP8, FP8ALT, FP16, FP16ALT
     .DstDotpFpFmtConfig ( FpDstFmtConfig ), // FP32, FP16, FP16ALT
     .NumPipeRegs        ( NumPipeRegs    ),
@@ -155,7 +155,7 @@ module ope_sdotp_wrapper #(
     .AuxType            ( AuxType        ),
     .StochasticRndImplementation ( StochasticRndImplementation ),
     .Stallable          ( Stallable      )
-  ) i_opope_sdotp (
+  ) i_opopope_sdotp (
     .clk_i,
     .rst_ni,
     .sdotp_hart_id_i,

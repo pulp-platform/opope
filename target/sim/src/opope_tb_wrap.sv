@@ -8,7 +8,7 @@
 timeunit 1ps; timeprecision 1ps;
 
 module opope_tb_wrap;
-import ope_pkg::*;
+import opope_pkg::*;
 
   localparam TCP = 2.0ns; // clock period, 1 GHz clock
   localparam TA  = 0.4ns; // application time

@@ -25,26 +25,26 @@ dependencies:
 sources:
   files:
   # OPE
-    - rtl/ope_pkg.sv
-    - rtl/accumulation_reg.sv
-    - rtl/ope_sdotp.sv
-    - rtl/ope_sdotp_wrapper.sv
-    - rtl/ope_fma.sv
-    - rtl/ope_ce.sv
-    - rtl/ope_engine.sv
-    - rtl/ope_tiler.sv
-    - rtl/ope_ctrl.sv
-    - rtl/ope_streamer.sv
-    - rtl/ope_buffers.sv
-    - rtl/ope_top.sv
+    - rtl/opope_pkg.sv
+    - rtl/opope_accumulator.sv
+    - rtl/opope_sdotp.sv
+    - rtl/opope_sdotp_wrapper.sv
+    - rtl/opope_fma.sv
+    - rtl/opope_ce.sv
+    - rtl/opope_engine.sv
+    - rtl/opope_tiler.sv
+    - rtl/opope_ctrl.sv
+    - rtl/opope_streamer.sv
+    - rtl/opope_buffers.sv
+    - rtl/opope_top.sv
 
     - target: opope_hwpe
       files:
-        - rtl/ope_wrap.sv
+        - rtl/opope_wrap.sv
 
     - target: opope_complex
       files:
-        - rtl/ope_inst_decoder.sv
+        - rtl/opope_inst_decoder.sv
 
     - target: any(opope_test_complex, opope_test_hwpe)
       files:

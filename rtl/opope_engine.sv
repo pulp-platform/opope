@@ -5,9 +5,9 @@
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 
 
-module ope_engine
+module opope_engine
   import fpnew_pkg::*;
-  import ope_pkg::*;
+  import opope_pkg::*;
 #(
  parameter  fp_format_e   FpFormat    = fpnew_pkg::FP32              ,
  parameter  int unsigned  Height      = 4                            , // Number of PEs per row
@@ -109,10 +109,10 @@ module ope_engine
   generate
     for (genvar row_index = 0; row_index < Height; row_index++) begin: accumulation_reg_row
       for (genvar col_index = 0; col_index < Width; col_index++) begin: accumulation_reg_col
-        accumulation_reg #(
+        opope_accumulator #(
           .DATA_WIDTH ( BITW          ),
           .DEPTH      ( REG_PER_CE    )
-        ) i_acc_reg (
+        ) i_accumulator (
           .clk_i              ( clk_i                                                ),
           .rst_ni             ( rst_ni                                               ),
           .flush_i            ( 1'b0                                                 ),
@@ -158,7 +158,7 @@ module ope_engine
   generate
     for(genvar row_index = 0; row_index < Height; row_index++) begin: ce_row
       for (genvar col_index = 0; col_index < Width; col_index++) begin: ce_col
-      ope_ce   #(
+      opope_ce   #(
         .FpFormat    ( FpFormat    ),
         .NumPipeRegs ( NumPipeRegs ),
         .PipeConfig  ( PipeConfig  ),

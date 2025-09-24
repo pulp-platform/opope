@@ -5,8 +5,8 @@
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 // Francesco Conti <f.conti@unibo.it>
 
-module ope_tiler
-  import ope_pkg::*;
+module opope_tiler
+  import opope_pkg::*;
   import hwpe_ctrl_package::*;
 (
   input  logic              clk_i      ,
@@ -194,4 +194,4 @@ assign reg_file_o.hwpe_params[M_SIZE][31:16]       = 'b0;
 assign reg_file_o.hwpe_params[N_SIZE][31:16]       = 'b0;
 assign reg_file_o.hwpe_params[K_SIZE][31:16]       = 'b0;
 
-endmodule: ope_tiler
+endmodule: opope_tiler

@@ -4,11 +4,11 @@
 //
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 
-module ope_buffers  
-  import ope_pkg::*;
+module opope_buffers  
+  import opope_pkg::*;
   import hwpe_stream_package::*;
 #(
-  parameter int unsigned DATA_WIDTH     = ope_pkg::DATAW,
+  parameter int unsigned DATA_WIDTH     = opope_pkg::DATAW,
   parameter int unsigned DEPTH          = 2
 ) (
   input  logic                         clk_i, 
@@ -233,4 +233,4 @@ module ope_buffers
     end
   end
 
-endmodule: ope_buffers
+endmodule: opope_buffers

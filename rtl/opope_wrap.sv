@@ -7,17 +7,17 @@
 
 `include "hci_helpers.svh"
 
-module ope_wrap
+module opope_wrap
   import fpnew_pkg::*;
   import hci_package::*;
-  import ope_pkg::*;
+  import opope_pkg::*;
   import hwpe_ctrl_package::*;
   import hwpe_stream_package::*;
 #(
   parameter  int unsigned  ID_WIDTH    = 10                   ,
   parameter  int unsigned  N_CORES     = 1                    ,
-  parameter  int unsigned  DW          = ope_pkg::DATA_W      , // TCDM port dimension (in bits)
-  parameter  int unsigned  MP          = DW/ope_pkg::MemDw,
+  parameter  int unsigned  DW          = opope_pkg::DATA_W      , // TCDM port dimension (in bits)
+  parameter  int unsigned  MP          = DW/opope_pkg::MemDw,
   parameter  int unsigned  EW          = DEFAULT_EW           , // ECC signals width
   localparam fp_format_e   FpFormat    = FPFORMAT             , // Data format (default is FP16)
   localparam int unsigned  Height      = ARRAY_HEIGHT         , // Number of PEs within a row
@@ -183,7 +183,7 @@ logic [N_CORES-1:0][1:0] evt;
   assign periph_r_id_o    = periph.r_id;
 `endif
 
-ope_top #(
+opope_top #(
   .ID_WIDTH              ( ID_WIDTH              ),
   .N_CORES               ( N_CORES               ),
   .DW                    ( DW                    ),
@@ -199,4 +199,4 @@ ope_top #(
   .periph             ( periph             )
 );
 
-endmodule: ope_wrap
+endmodule: opope_wrap

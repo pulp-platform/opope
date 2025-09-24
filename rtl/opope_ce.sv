@@ -5,9 +5,9 @@
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 // George Pagonis: remove the comp, add the sdotp and the fma in a signle stage
 
-module ope_ce
+module opope_ce
   import fpnew_pkg::*;
-  import ope_pkg::*;
+  import opope_pkg::*;
 #(
   parameter fpnew_pkg::fp_format_e   FpFormat    = fpnew_pkg::FP32              ,
   parameter int unsigned             NumPipeRegs = 4                            ,
@@ -257,7 +257,7 @@ module ope_ce
 
 
 
-  ope_sdotp_wrapper #(
+  opope_sdotp_wrapper #(
     .LaneWidth        ( fpnew_pkg::fp_width(FpFormat) ), // Should be 32
     .FpFmtConfig      ( FpFmtConfig                   ),
     .NumPipeRegs      ( NumPipeRegs                   ),
@@ -306,7 +306,7 @@ module ope_ce
 
 
 
-  ope_fma   #(
+  opope_fma   #(
     .FpFormat    ( FpFormat    ),
     // .NumPipeRegs ( NumPipeRegs - 1),
     .NumPipeRegs ( NumPipeRegs ),
@@ -377,4 +377,4 @@ module ope_ce
     end
   end : output_selector
 
-endmodule: ope_ce
+endmodule: opope_ce

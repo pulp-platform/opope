@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: SHL-0.51
 //
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
-// Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 
 `include "hci_helpers.svh"
 
-module ope_top
+module opope_top
   import fpnew_pkg::*;
-  import ope_pkg::*;
+  import opope_pkg::*;
   import hci_package::*;
   import hwpe_ctrl_package::*;
   import hwpe_stream_package::*;
@@ -100,7 +99,7 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk
   logic [SysDataWidth-1:0] sizem, sizen, sizek;
   logic [SysDataWidth-1:0] x_addr, w_addr, y_addr, z_addr;
 
-  ope_inst_decoder #(
+  opope_inst_decoder #(
     .SysInstWidth       ( SysInstWidth       ),
     .SysDataWidth       ( SysDataWidth       ),
     .NumRfReadPrts      ( 3                  ) // FIXME: parametric
@@ -125,7 +124,7 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk
 /* The streamer will present a single master TCDM port used to  */
 /* stream data to and from the memory.                          */
 
-ope_streamer #(
+opope_streamer #(
   .DW             ( DW                           ),
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
 ) i_streamer      (
@@ -152,7 +151,7 @@ ope_streamer #(
 /* |                       Input Buffers                       | */
 /*---------------------------------------------------------------*/
 
-ope_buffers #(
+opope_buffers #(
   .DATA_WIDTH       (DATAW),
   .DEPTH            (W_REGBUFFER_DEPTH)
 ) i_buffers (
@@ -188,13 +187,13 @@ ope_buffers #(
 /*---------------------------------------------------------------*/
 
 // Engine instance
-ope_engine     #(
+opope_engine     #(
   .FpFormat        ( FpFormat),
   .Height          ( Height        ),
   .Width           ( Width         ),
   .NumPipeRegs     ( NumPipeRegs   ),
   .PipeConfig      ( PipeConfig    )
-) i_ope_engine (
+) i_engine (
   .clk_i              ( clk_i        ),
   .rst_ni             ( rst_ni       ),
   .clk_en_i           (ce_clk_en     ),
@@ -209,7 +208,7 @@ ope_engine     #(
 /* |                        Controller                         | */
 /*---------------------------------------------------------------*/
 
-ope_ctrl        #(
+opope_ctrl        #(
   .N_CORES            ( N_CORES        ),
   .IO_REGS            ( OPOPE_REGS   ),
   .ID_WIDTH           ( ID_WIDTH       ),
@@ -247,4 +246,4 @@ ope_ctrl        #(
 );
 
 
-endmodule : ope_top
+endmodule : opope_top

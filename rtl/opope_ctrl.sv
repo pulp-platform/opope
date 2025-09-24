@@ -3,12 +3,11 @@
 // SPDX-License-Identifier: SHL-0.51
 //
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
-// Andrea Belano <andrea.belano2@unibo.it>
 //
 
 
-module ope_ctrl
-  import ope_pkg::*;
+module opope_ctrl
+  import opope_pkg::*;
   import hwpe_ctrl_package::*;
 #(
   parameter  int unsigned N_CORES       = 8            ,
@@ -51,15 +50,15 @@ module ope_ctrl
   
   // Main controller signals
   typedef enum logic [3:0] {
-    OPE_LATCH_RST,
-    OPE_IDLE,
-    OPE_LOAD_X,
-    OPE_LOAD_W,
-    OPE_LOAD_Y,
-    OPE_COMPUTING, 
-    OPE_FINISHED
-  } ope_ctrl_state_e;
-  ope_ctrl_state_e current, next;
+    OPOPE_LATCH_RST,
+    OPOPE_IDLE,
+    OPOPE_LOAD_X,
+    OPOPE_LOAD_W,
+    OPOPE_LOAD_Y,
+    OPOPE_COMPUTING, 
+    OPOPE_FINISHED
+  } opope_ctrl_state_e;
+  opope_ctrl_state_e current, next;
   
   logic clear, latch_clear;
   logic tiler_setback, tiler_valid;
@@ -78,7 +77,7 @@ module ope_ctrl
     PRIORITY_X,
     PRIORITY_W,
     PRIORITY_YZ
-  } ope_priority_level_e;
+  } opope_priority_level_e;
 
   typedef enum logic [2:0] {
     STREAMER_Y,
@@ -86,10 +85,10 @@ module ope_ctrl
     STREAMER_XWM,
     STREAMER_XWZ,
     STREAMER_Z
-  } ope_priority_state_e;
+  } opope_priority_state_e;
 
-  ope_priority_level_e priority_level;
-  ope_priority_state_e streamer_current,streamer_next;
+  opope_priority_level_e priority_level;
+  opope_priority_state_e streamer_current,streamer_next;
 
   cntrl_scheduler_t cntrl_scheduler;
 
@@ -162,7 +161,7 @@ module ope_ctrl
     .reg_file       ( reg_file_d   )
   );
 
-  ope_tiler  i_cfg_tiler (
+  opope_tiler  i_cfg_tiler (
     .clk_i       ( clk_i         ),
     .rst_ni      ( rst_ni        ),
     .clear_i     ( clear         ),
@@ -180,7 +179,7 @@ module ope_ctrl
   // State register
   always_ff @(posedge clk_i or negedge rst_ni) begin : state_register
     if(~rst_ni) begin
-       current <= OPE_LATCH_RST;
+       current <= OPOPE_LATCH_RST;
     end else begin
       current <= next;
     end
@@ -208,9 +207,9 @@ module ope_ctrl
   assign cntrl_engine_o.stage2_rnd = fpnew_pkg::roundmode_e'(reg_file_q.hwpe_params[OP_SELECTION][28:26]);
   assign cntrl_engine_o.op1 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][25:21]);
   assign cntrl_engine_o.op2 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][20:16]);
-  assign cntrl_engine_o.memory_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
+  assign cntrl_engine_o.memory_format = opope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
   assign cntrl_engine_o.inner_loop_count = (reg_file_q.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
-  assign cntrl_engine_o.computing_format = ope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
+  assign cntrl_engine_o.computing_format = opope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
   assign cntrl_engine_o.mode =  cntrl_engine_mode_e'(IDLE);
   assign cntrl_engine_o.iteration_change    = 1'b0;
   assign cntrl_engine_o.y_write_reg_index   = y_write_reg_index_q;
@@ -235,16 +234,16 @@ module ope_ctrl
     next = current;
 
     case (current)
-      OPE_LATCH_RST: next = OPE_IDLE;
-      OPE_IDLE     : next = change_state  ? OPE_LOAD_W    : current;
-      OPE_LOAD_W   : next = OPE_LOAD_X;
-      OPE_LOAD_X   : next = OPE_LOAD_Y;
-      OPE_LOAD_Y   : next = change_state  ? OPE_COMPUTING : current;
-      OPE_COMPUTING: next = change_state  ? OPE_FINISHED  : current;
-      OPE_FINISHED : next = OPE_IDLE;
+      OPOPE_LATCH_RST: next = OPOPE_IDLE;
+      OPOPE_IDLE     : next = change_state  ? OPOPE_LOAD_W    : current;
+      OPOPE_LOAD_W   : next = OPOPE_LOAD_X;
+      OPOPE_LOAD_X   : next = OPOPE_LOAD_Y;
+      OPOPE_LOAD_Y   : next = change_state  ? OPOPE_COMPUTING : current;
+      OPOPE_COMPUTING: next = change_state  ? OPOPE_FINISHED  : current;
+      OPOPE_FINISHED : next = OPOPE_IDLE;
     endcase
     
-    if (clear)       next = OPE_IDLE;
+    if (clear)       next = OPOPE_IDLE;
   end
 
   always_comb begin : controller_values
@@ -261,31 +260,31 @@ module ope_ctrl
     cntrl_scheduler.start_store_z = 1'b0;
     cntrl_scheduler.start_load_y  = 1'b0;
     case (current)
-      OPE_LATCH_RST: begin
+      OPOPE_LATCH_RST: begin
         latch_clear = 1'b1;
         busy_o      = 1'b0;
       end
-      OPE_IDLE     : begin
+      OPOPE_IDLE     : begin
         change_state                   = slave_start & tiler_valid;
         tiler_setback                  = change_state;
         cntrl_scheduler.start_load_w = change_state;
         busy_o      = 1'b0;
       end
-      OPE_LOAD_W   : begin
+      OPOPE_LOAD_W   : begin
         cntrl_scheduler.start_load_x  = 1'b1;
       end
-      OPE_LOAD_X   : begin
+      OPOPE_LOAD_X   : begin
         cntrl_scheduler.start_store_z = 1'b1;
         cntrl_scheduler.start_load_y  = 1'b1;
       end
-      OPE_LOAD_Y   : begin
+      OPOPE_LOAD_Y   : begin
         change_state = start_computing;
       end
-      OPE_COMPUTING: begin
+      OPOPE_COMPUTING: begin
         change_state = finished;
         ce_clk_en_o  = 1'b1;
       end
-      OPE_FINISHED : begin
+      OPOPE_FINISHED : begin
         cntrl_slave.done           = 1'b1;
         cntrl_scheduler.rst      = 1'b1;
         cntrl_scheduler.finished = 1'b1;
@@ -686,4 +685,4 @@ module ope_ctrl
   assign cntrl_streamer_o.custom_priority_force = 1'b1;
 
   assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
-endmodule : ope_ctrl
+endmodule : opope_ctrl

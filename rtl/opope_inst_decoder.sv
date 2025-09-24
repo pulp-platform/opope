@@ -5,8 +5,8 @@
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
-module ope_inst_decoder
-  import ope_pkg::*;
+module opope_inst_decoder
+  import opope_pkg::*;
   import cv32e40x_pkg::*;
 #(
   parameter  int unsigned SysInstWidth  = 32            ,
@@ -47,9 +47,9 @@ typedef enum logic [1:0] {
   Idle,
   WriteCfg,
   Trigger
-} opope_instr_cfg_state_e;
+} opopope_instr_cfg_state_e;
 
-opope_instr_cfg_state_e current, next;
+opopope_instr_cfg_state_e current, next;
 
 // Xif static binding
 assign xif_compressed_if_i.compressed_ready = 1'b0;
@@ -215,4 +215,4 @@ always_comb begin : cfg_fsm
   endcase
 end
 
-endmodule: ope_inst_decoder
+endmodule: opope_inst_decoder

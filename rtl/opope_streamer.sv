@@ -3,14 +3,12 @@
 // SPDX-License-Identifier: SHL-0.51
 //
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
-// Andrea Belano <andrea.belano2@unibo.it>
-//
 
 `include "hci_helpers.svh"
 
-module ope_streamer
+module opope_streamer
   import fpnew_pkg::*;
-  import ope_pkg::*;
+  import opope_pkg::*;
   import hci_package::*;
   import hwpe_stream_package::*;
 #(
@@ -426,4 +424,4 @@ hwpe_stream_assign i_wstream_assign ( .push_i( out_stream[WsourceStreamId] ) ,
 hwpe_stream_assign i_ystream_assign ( .push_i( out_stream[YsourceStreamId] ) ,
       .pop_o ( y_stream_o                  ) );
 
-endmodule : ope_streamer
+endmodule : opope_streamer

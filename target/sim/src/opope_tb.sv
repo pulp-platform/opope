@@ -10,7 +10,7 @@ timeunit 1ps; timeprecision 1ps;
 import hci_package::*;
 
 module opope_tb
-  import ope_pkg::*;
+  import opope_pkg::*;
 #(
   parameter TCP = 2.0ns, // clock period, 1 GHz clock
   parameter TA  = 0.4ns, // application time
@@ -21,7 +21,7 @@ module opope_tb
   input logic fetch_enable_i
 );
 
-  localparam int unsigned DW = ope_pkg::DATA_W;
+  localparam int unsigned DW = opope_pkg::DATA_W;
 
   // parameters
   localparam int unsigned PROB_STALL = 0;
@@ -202,7 +202,7 @@ module opope_tb
 
 
 
-  ope_wrap #(
+  opope_wrap #(
     .ID_WIDTH           ( ID                 ),
     .N_CORES            ( NC                 ),
     .DW                 ( DW                 ),
@@ -533,24 +533,24 @@ module opope_tb
         if(i_opope_wrap.i_opope_top.i_control.out_ready_i && 
            i_opope_wrap.i_opope_top.i_control.out_valid_o) begin
           cnt =  cnt+1 ;
-          $display("[Engine] - Engine Output=0x%04x",i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[0]);
+          $display("[Engine] - Engine Output=0x%04x",i_opope_wrap.i_opope_top.i_engine.z_output_o[0]);
           // $display("[Engine] - Engine Output=0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, ", 
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[0],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[1],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[2],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[3],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[4],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[5],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[6],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[7],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[8],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[9],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[10],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[11],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[12],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[13],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[14],
-          //         i_opope_wrap.i_opope_top.i_ope_engine.z_output_o[15],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[0],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[1],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[2],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[3],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[4],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[5],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[6],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[7],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[8],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[9],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[10],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[11],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[12],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[13],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[14],
+          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[15],
           //         );
           if(cnt%16 == 0) $display("----------------------------------");
         end

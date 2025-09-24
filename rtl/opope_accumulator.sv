@@ -4,8 +4,8 @@
 //
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 
-module accumulation_reg
-  import ope_pkg::*;
+module opope_accumulator
+  import opope_pkg::*;
 #(
   parameter int unsigned   DATA_WIDTH   = BITW,
   parameter int unsigned   DEPTH        = REG_PER_CE
@@ -44,4 +44,4 @@ module accumulation_reg
     end
   end
 
-endmodule : accumulation_reg
+endmodule : opope_accumulator

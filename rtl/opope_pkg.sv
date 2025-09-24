@@ -9,7 +9,7 @@ import fpnew_pkg::*;
 import hci_package::*;
 import hwpe_stream_package::*;
 
-package ope_pkg;
+package opope_pkg;
 
   parameter int unsigned            ARRAY_HEIGHT = 8;
   parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;
