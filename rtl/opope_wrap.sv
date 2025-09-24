@@ -195,7 +195,6 @@ opope_top #(
   .evt_o              ( evt_o              ),
   .busy_o             (                    ),
   .tcdm               ( tcdm               ),
-  // .debug_cntrl_scheduler_o(debug_cntrl_scheduler_o),
   .periph             ( periph             )
 );
 

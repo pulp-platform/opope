@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
-# George Pagonis: Packing-baby
-#
 
 import numpy as np
 import torch 

@@ -15,8 +15,6 @@
 // Author: Luca Bertaccini <lbertaccini@iis.ee.ethz.ch>
 // Author: Stefan Mach <smach@iis.ee.ethz.ch>
 
-// George Pagonis : Added stallable and reg_enable_i
-
 `include "common_cells/registers.svh"
 
 module opope_sdotp_wrapper #(
