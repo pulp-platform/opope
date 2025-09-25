@@ -106,8 +106,8 @@ $(BUILD_DIR):
 SHELL := /bin/bash
 
 init: riscv32-gcc bender
-	source setup-py.sh
-
+	source scripts/setup-py.sh
+	
 init-iis:
 	ln -s /usr/scratch2/larain3/dcammarata/opope/golden-model/venv golden-model/venv
 	ln -s /usr/scratch2/larain3/dcammarata/opope/vendor vendor 
