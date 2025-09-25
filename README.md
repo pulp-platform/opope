@@ -9,6 +9,11 @@ To setup the repo (general case):
 make init
 ```
 
+To setup env variables:
+```bash
+source scripts/setup-hwpe.sh
+```
+
 To run a simulation with the GUI:
 ```bash
 make golden OP=gemm M=32 N=32 K=32 fp_fmt=FP16
