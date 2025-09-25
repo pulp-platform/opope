@@ -1,13 +1,12 @@
 # O-POPE - WIP
 
-To setup the repo:
+To setup the repo from IIS machine:
 ```bash
-cd golden-model
-source setup-py.sh
-cd ..
-make riscv32-gcc # Installs GCC
-make bender
-source scripts/setup-hwpe.sh
+make init-iis
+```
+To setup the repo (general case):
+```bash
+make init
 ```
 
 To run a simulation with the GUI:
