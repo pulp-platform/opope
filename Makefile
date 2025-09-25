@@ -105,6 +105,13 @@ $(BUILD_DIR):
 
 SHELL := /bin/bash
 
+init: riscv32-gcc bender
+	source setup-py.sh
+
+init-iis:
+	ln -s /usr/scratch2/larain3/dcammarata/opope/golden-model/venv golden-model/venv
+	ln -s /usr/scratch2/larain3/dcammarata/opope/vendor vendor 
+
 # Generate instructions and data stimuli
 sw-build: $(STIM_INSTR) $(STIM_DATA_X_W) $(STIM_DATA_Y_Z) dis
 
