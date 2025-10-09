@@ -527,8 +527,9 @@ module opope_tb
     int ENABLE_ENGINE_OUTPUT  = 0;
     int ENABLE_ENGINE_Y_INPUT = 0;
     int cnt = 0;
-    wait (rst_ni);
-    // ----------------------------------------------------------------------- 
+    @(posedge clk_i);
+    // -----------------------------------------------------------------------
+    forever begin 
       if(ENABLE_ENGINE_OUTPUT) begin 
         if(i_opope_wrap.i_opope_top.i_control.out_ready_i && 
            i_opope_wrap.i_opope_top.i_control.out_valid_o) begin
@@ -555,7 +556,8 @@ module opope_tb
           if(cnt%16 == 0) $display("----------------------------------");
         end
       end
-    // ----------------------------------------------------------------------- 
       @(posedge clk_i);
+    end
+    // ----------------------------------------------------------------------- 
   end
 endmodule // opope_tb
