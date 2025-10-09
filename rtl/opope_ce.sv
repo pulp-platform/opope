@@ -202,10 +202,12 @@ module opope_ce
     fma_input_aux_d       = fma_input_aux;
     fma_in_valid_d        = fma_in_valid;
   end
+  
+  parameter fpnew_pkg::fmt_logic_t  FpFmtConfigSdotp  = (FpFormat==FP32) ? 6'b101000 : 6'b001100;
 
   opope_sdotp_wrapper #(
     .LaneWidth        ( fpnew_pkg::fp_width(FpFormat) ), // Should be 32
-    .FpFmtConfig      ( FpFmtConfig                   ),
+    .FpFmtConfig      ( FpFmtConfigSdotp              ),
     .NumPipeRegs      ( NumPipeRegs                   ),
     .PipeConfig       ( PipeConfig                    ),
     .Stallable        ( Stallable                     ) 

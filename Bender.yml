@@ -31,6 +31,7 @@ sources:
     - rtl/opope_sdotp_wrapper.sv
     - rtl/opope_fma.sv
     - rtl/opope_ce.sv
+    - rtl/opope_fpnew.sv
     - rtl/opope_engine.sv
     - rtl/opope_tiler.sv
     - rtl/opope_ctrl.sv

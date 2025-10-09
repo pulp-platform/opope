@@ -26,17 +26,14 @@ package opope_pkg;
   parameter int unsigned            TOT_DEPTH    = DATAW/BITW;
   parameter int unsigned            DEPTH        = TOT_DEPTH/ARRAY_HEIGHT;
   parameter int unsigned            STRB         = DATA_W/8;
-  parameter fpnew_pkg::fmt_logic_t  FpFmtConfig  = 6'b001100;
-  parameter fpnew_pkg::ifmt_logic_t IntFmtConfig = 4'b1000;
-  parameter fpnew_pkg::operation_e  CAST_OP      = fpnew_pkg::F2F;
-  parameter int unsigned MIN_FMT  = fpnew_pkg::min_fp_width(FpFmtConfig);
-  parameter int unsigned DW_CUT   = DATA_W - ARRAY_HEIGHT*(PIPE_REGS + 1)*MIN_FMT;
   parameter int unsigned ECC_CHUNK_SIZE = 32;
   parameter int unsigned ECC_N_CHUNK    = DATA_W / ECC_CHUNK_SIZE;
 
   parameter int unsigned X_REGBUFFER_DEPTH = 2;
   parameter int unsigned W_REGBUFFER_DEPTH = 2;
-  parameter int unsigned REG_PER_CE     = X_REGBUFFER_DEPTH * W_REGBUFFER_DEPTH;
+  parameter int unsigned REG_PER_CE        = X_REGBUFFER_DEPTH * W_REGBUFFER_DEPTH;
+  parameter int unsigned ACC_RD_PORTS      = 2;
+  parameter int unsigned ACC_WR_PORTS      = 2;
 
   // Register File mapping
   /**********************
