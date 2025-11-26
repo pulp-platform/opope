@@ -24,7 +24,7 @@ module opope_tb
   localparam int unsigned DW = opope_pkg::DATA_W;
 
   // parameters
-  localparam int unsigned PROB_STALL = 0;
+  localparam real         PROB_STALL = 0.0;
   localparam int unsigned NC = 1;
   localparam int unsigned ID = 10;
 

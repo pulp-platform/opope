@@ -11,30 +11,29 @@ import hwpe_stream_package::*;
 
 package opope_pkg;
 
-  parameter int unsigned            ARRAY_HEIGHT = 8;
-  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;
-  parameter int unsigned            BITW         = fpnew_pkg::fp_width(FPFORMAT);
-  parameter int unsigned            ARRAY_WIDTH  = ARRAY_HEIGHT;
-  parameter int unsigned            DATA_W       = 2*BITW*ARRAY_HEIGHT + 32;                                  
-  parameter int unsigned            MemDw        = 32;
-  parameter int unsigned            NumByte      = MemDw/8;
-  parameter int unsigned            ADDR_W       = hci_package::DEFAULT_AW;
-  parameter int unsigned            DATAW        = DATA_W - MemDw;
-  parameter int unsigned            OPOPE_REGS = 22;
-  parameter int unsigned            N_CONTEXT    = 2;
-  parameter int unsigned            PIPE_REGS    = 4;
-  parameter int unsigned            TOT_DEPTH    = DATAW/BITW;
-  parameter int unsigned            DEPTH        = TOT_DEPTH/ARRAY_HEIGHT;
-  parameter int unsigned            STRB         = DATA_W/8;
-  parameter int unsigned ECC_CHUNK_SIZE = 32;
-  parameter int unsigned ECC_N_CHUNK    = DATA_W / ECC_CHUNK_SIZE;
-
-  parameter int unsigned X_REGBUFFER_DEPTH = 2;
-  parameter int unsigned W_REGBUFFER_DEPTH = 2;
-  parameter int unsigned REG_PER_CE        = X_REGBUFFER_DEPTH * W_REGBUFFER_DEPTH;
-  parameter int unsigned ACC_RD_PORTS      = 2;
-  parameter int unsigned ACC_WR_PORTS      = 2;
-
+  parameter int unsigned            ARRAY_HEIGHT      = 8;
+  parameter fpnew_pkg::fp_format_e  FPFORMAT          = fpnew_pkg::FP16;
+  parameter int unsigned            BITW              = fpnew_pkg::fp_width(FPFORMAT);
+  parameter int unsigned            ARRAY_WIDTH       = ARRAY_HEIGHT;
+  parameter int unsigned            DATA_W            = 2*BITW*ARRAY_HEIGHT + 32;                                  
+  parameter int unsigned            MemDw             = 32;
+  parameter int unsigned            DATAW             = DATA_W - MemDw;
+  parameter int unsigned            OPOPE_REGS        = 22;
+  parameter int unsigned            N_CONTEXT         = 2;
+  parameter int unsigned            PIPE_REGS         = 4;
+  parameter int unsigned            ECC_CHUNK_SIZE    = 32;
+  parameter int unsigned            ECC_N_CHUNK       = DATA_W / ECC_CHUNK_SIZE;
+  parameter int unsigned            X_REGBUFFER_DEPTH = 2;
+  parameter int unsigned            W_REGBUFFER_DEPTH = 2;
+  parameter int unsigned            REG_PER_CE        = X_REGBUFFER_DEPTH * W_REGBUFFER_DEPTH;
+  parameter int unsigned            ACC_RD_PORTS      = 2;
+  parameter int unsigned            ACC_WR_PORTS      = 2;
+  parameter int unsigned            NumStreamSources  = 3;
+  parameter int unsigned            XsourceStreamId   = 0;
+  parameter int unsigned            WsourceStreamId   = 1;
+  parameter int unsigned            YsourceStreamId   = 2;
+  localparam int unsigned           ID                = 10;
+  
   // Register File mapping
   /**********************
   ** Slave RF indexing **
@@ -44,10 +43,8 @@ package opope_pkg;
   parameter int unsigned Z_ADDR = 2; // 0x08 /* These do not change between slave and final */
   parameter int unsigned MCFIG0 = 3; // 0x0C --> [31:16] -> K size, [15: 0] -> M size
   parameter int unsigned MCFIG1 = 4; // 0x10 --> [31: 0] -> N Size
-  // Matrix arithmetic config register
-  // [12:10] -> Operation selection
-  // [ 9: 7] -> Input/Output format
-  parameter int unsigned MACFG = 5; // 0x14
+  parameter int unsigned MACFG  = 5; // 0x14 --> [12:10] -> Operation selection, [ 9: 7] -> Input/Output format
+  
   /**********************
   ** Final RF indexing **
   **********************/
@@ -109,48 +106,12 @@ package opope_pkg;
     CSR_OPOPE_MACFG  = 12'h805
   } opope_csr_num_e;
 
-  parameter int unsigned NumStreamSources     = 3; // X, W, Y
-  parameter int unsigned XsourceStreamId      = 0;
-  parameter int unsigned WsourceStreamId      = 1;
-  parameter int unsigned YsourceStreamId      = 2;
-
-  typedef enum logic { LD_IN_FMP, LD_WEIGHT } source_sel_e;
-  typedef enum logic { LOAD, STORE }          ld_st_sel_e;
-
   typedef enum logic[1:0] {
     IDLE,
     Y_LOAD, 
     COMPUTE, 
     Z_READ
   } cntrl_engine_mode_e;
-
-
-
-  typedef enum logic[0:0] {
-    INTERLEAVED,
-    SERIALLY
-  } reg_reading_policy_e;
-
-  typedef struct packed {
-    logic        [31:0] base_addr;
-    logic        [31:0] tot_len;    // former word_length
-    logic        [31:0] d0_len;     // former line_length
-    logic signed [31:0] d0_stride;  // former word_stride
-    logic        [31:0] d1_len;     // former block_length
-    logic signed [31:0] d1_stride;  // former line_stride
-    logic        [31:0] d2_len;     
-    logic signed [31:0] d2_stride;  // former block_stride
-    logic        [31:0] d3_len;     
-    logic signed [31:0] d3_stride;
-    logic        [31:0] d4_len;     
-    logic signed [31:0] d4_stride;
-    logic         [3:0] dim_enable_1h;
-  } ctrl_addressgen_custom_t;
-
-  typedef struct packed {
-    logic                                     req_start;
-    ctrl_addressgen_custom_t                  addressgen_ctrl;
-  } hci_streamer_ctrl_custom_t; 
 
   typedef struct packed {
     hci_package::hci_streamer_ctrl_t x_stream_source_ctrl;
@@ -166,13 +127,6 @@ package opope_pkg;
   } cntrl_streamer_t;
 
   typedef struct packed {
-    logic load;
-    logic read_buffer;
-    logic store_buffer;
-    logic [$clog2(X_REGBUFFER_DEPTH) -1 : 0 ] x_buffer_addr;
-  } x_regbuffer_ctrl_t; 
-
-  typedef struct packed {
     hci_package::hci_streamer_flags_t x_stream_source_flags;
     hci_package::hci_streamer_flags_t w_stream_source_flags;
     hci_package::hci_streamer_flags_t y_stream_source_flags;
@@ -181,64 +135,6 @@ package opope_pkg;
     logic                             w_granted            ; 
     logic                             y_granted            ;  
   } flgs_streamer_t;
-
-  typedef struct packed {
-    logic h_shift;
-    logic load;
-    logic pad_setup;
-    logic [$clog2(ARRAY_WIDTH):0] width;
-    logic [$clog2(TOT_DEPTH):0]   height;
-    logic [$clog2(TOT_DEPTH):0]   slots;
-
-    logic                         rst_w_index;
-  } x_buffer_ctrl_t;
-
-  typedef struct packed {
-    logic empty;
-    logic full;
-  } x_buffer_flgs_t;
-
-  typedef struct packed {
-    logic                          shift;
-    logic                          load;
-    logic [$clog2(TOT_DEPTH):0]    width;
-    logic [$clog2(ARRAY_HEIGHT):0] height;
-  } w_buffer_ctrl_t;
-
-  typedef struct packed {
-    logic                    w_ready;
-  } w_buffer_flgs_t;
-
-  typedef struct packed {
-    logic                         y_push_enable;
-    logic                         fill;
-    logic                         ready;
-    logic                         y_valid;
-    logic                         first_load;
-    logic [$clog2(ARRAY_WIDTH):0] y_width;
-    logic [$clog2(TOT_DEPTH):0]   y_height;
-    logic [$clog2(ARRAY_WIDTH):0] z_width;
-    logic [$clog2(TOT_DEPTH):0]   z_height;
-  } z_buffer_ctrl_t;
-
-  typedef struct packed {
-    logic y_pushed;
-    logic empty;
-    logic loaded;
-    logic y_ready;
-    logic z_valid;
-  } z_buffer_flgs_t;
-
-
-  typedef struct packed {
-    logic                  [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0] in_ready;
-    fpnew_pkg::status_t    [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0] status;
-    logic                  [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0] extension_bit;
-    fpnew_pkg::classmask_e [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0] class_mask;
-    logic [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0]                  is_mask;
-    logic                  [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0] out_valid;
-    logic                  [ARRAY_WIDTH-1:0][ARRAY_HEIGHT-1:0] busy;
-  } flgs_engine_t;
 
   typedef struct packed {
     logic start_load_x;
@@ -327,60 +223,5 @@ package opope_pkg;
     logic external_loading    ;
     logic shift_acc           ;
   } cntrl_engine_t;
-
-  typedef enum {
-    CV32P ,
-    CV32X ,
-    Ibex  ,
-    CVA6
-  } core_type_e;
-
-  // Default buses
-  localparam int unsigned ID = 10;
-  typedef struct packed {
-    logic        req;
-    logic [31:0] addr;
-  } core_default_inst_req_t;
-
-  typedef struct packed {
-    logic        gnt;
-    logic        valid;
-    logic [31:0] data;
-  } core_default_inst_rsp_t;
-
-  typedef struct packed {
-    logic req;
-    logic we;
-    logic [3:0] be;
-    logic [31:0] addr;
-    logic [31:0] data;
-  } core_default_data_req_t;
-
-  typedef struct packed {
-    logic gnt;
-    logic valid;
-    logic [31:0] data;
-  } core_default_data_rsp_t;
-
-  typedef struct packed {
-    logic req;
-    logic wen;
-    logic [DATA_W/8-1:0] be;
-    logic signed [DATA_W/32-1:0][31:0]boffs;
-    logic [31:0] add;
-    logic [DATA_W-1:0] data;
-    logic lrdy;
-    logic user;
-  } opope_default_data_req_t;
-
-  typedef struct packed {
-    logic gnt;
-    logic r_valid;
-    logic [DATA_W-1:0] r_data;
-    logic r_opc;
-    logic r_user;
-  } opope_default_data_rsp_t;
-
-
-
+  
 endpackage

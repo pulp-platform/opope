@@ -61,7 +61,7 @@ module tb_dummy_memory
 
     for(genvar i=0; i<MP; i++) begin
       
-      assign tcdm_gnt[i] = (probs[i] < PROB_STALL) & stallable_i ? 1'b0 : 1'b1;
+      assign tcdm_gnt[i] = (probs[5] < PROB_STALL) & stallable_i ? 1'b0 : 1'b1;
     end
 
     for(genvar ii=0; ii<MP; ii++) begin : binding_gen

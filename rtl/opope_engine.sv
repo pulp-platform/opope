@@ -178,29 +178,18 @@ module opope_engine
             .x_input_i          ( ce_operands[row_index][col_index][0]            ),
             .w_input_i          ( ce_operands[row_index][col_index][1]            ),
             .y_bias_i           ( ce_operands[row_index][col_index][2]            ),
-            .fma_is_boxed_i     ( cntrl_engine_i.fma_is_boxed                     ),
-            .noncomp_is_boxed_i ( 2'b11                                           ),
-            .stage1_rnd_i       ( cntrl_engine_i.stage1_rnd                       ),
-            .stage2_rnd_i       ( cntrl_engine_i.stage2_rnd                       ),
             .op1_i              ( cntrl_engine_i.op1                              ),
-            .op2_i              ( cntrl_engine_i.op2                              ),
             .memory_fmt_i       ( cntrl_engine_i.memory_format                    ),
             .computing_fmt_i    ( cntrl_engine_i.computing_format                 ),
-            .same_fmt_i         ( same_fmt                                        ),
             .op_mod_i           ( cntrl_engine_i.op_mod                           ),
             .tag_i              ( 1'b0                                            ),
-            .aux_i              ( 1'b0                                            ),
             .in_valid_i         ( cntrl_engine_i.in_valid & cntrl_engine_i.in_ready), 
             .in_ready_o         (                                                 ),
             .reg_enable_i       ( cntrl_engine_i.reg_enable                       ),
             .flush_i            ( 1'b0                                            ),
             .z_output_o         ( engine_to_reg_output[row_index][col_index]      ),
             .status_o           (                                                 ), // Not used 
-            .extension_bit_o    (                                                 ), // Not used
-            .class_mask_o       (                                                 ), // Not used
-            .is_class_o         (                                                 ), // Not used
             .tag_o              (                                                 ), // Not used
-            .aux_o              (                                                 ), // Not used
             .out_valid_o        (                                                 ),
             .out_ready_i        ( 1'b1                                            ),
             .busy_o             (                                                 )  // Not used

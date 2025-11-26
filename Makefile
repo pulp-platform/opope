@@ -109,8 +109,8 @@ init: riscv32-gcc bender
 	source scripts/setup-py.sh
 	
 init-iis:
-	ln -s /usr/scratch2/larain3/dcammarata/opope/golden-model/venv golden-model/venv
-	ln -s /usr/scratch2/larain3/dcammarata/opope/vendor vendor 
+	ln -s /usr/scratch/pisoc2/dcammarata/opope/golden-model/venv golden-model/venv
+	ln -s /usr/scratch/pisoc2/dcammarata/opope/vendor vendor 
 
 # Generate instructions and data stimuli
 sw-build: $(STIM_INSTR) $(STIM_DATA_X_W) $(STIM_DATA_Y_Z) dis

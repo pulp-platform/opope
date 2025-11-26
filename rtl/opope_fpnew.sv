@@ -21,29 +21,18 @@ module opope_fpnew
   input  logic                    [BITW-1:0] x_input_i         ,
   input  logic                    [BITW-1:0] w_input_i         ,
   input  logic                    [BITW-1:0] y_bias_i          ,
-  input  logic                    [2:0]      fma_is_boxed_i    ,
-  input  logic                    [1:0]      noncomp_is_boxed_i,
-  input  fpnew_pkg::roundmode_e              stage1_rnd_i      ,
-  input  fpnew_pkg::roundmode_e              stage2_rnd_i      ,
   input  fpnew_pkg::operation_e              op1_i             ,
-  input  fpnew_pkg::operation_e              op2_i             ,
   input  fpu_fmt_e                           memory_fmt_i      ,
   input  fpu_fmt_e                           computing_fmt_i   ,
-  input  logic                               same_fmt_i        , 
   input  logic                               op_mod_i          ,
   input  TagType                             tag_i             ,
-  input  AuxType                             aux_i             ,
   input  logic                               in_valid_i        ,
   output logic                               in_ready_o        ,
   input  logic                               reg_enable_i      ,
   input  logic                               flush_i           ,
   output logic                    [BITW-1:0] z_output_o        ,
   output fpnew_pkg::status_t                 status_o          ,
-  output logic                               extension_bit_o   ,
-  output fpnew_pkg::classmask_e              class_mask_o      ,
-  output logic                               is_class_o        ,
   output TagType                             tag_o             ,
-  output AuxType                             aux_o             ,
   output logic                               out_valid_o       ,
   input  logic                               out_ready_i       ,
   output logic                               busy_o
@@ -70,7 +59,6 @@ module opope_fpnew
     FpFmtMask:     6'b101100,
     IntFmtMask:    4'b0000
   };
-
   localparam fpnew_pkg::fpu_implementation_t FPUImplementation32 = 
     '{
         PipeRegs: '{ //    FP32    FP64     FP16          FP8     FP16alt FP8alt
