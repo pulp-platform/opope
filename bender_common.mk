@@ -9,10 +9,10 @@ common_targs += -t cv32e40p_exclude_tracer
 
 ifeq ($(OPOPE_COMPLEX),1)
 	common_targs += -t opope_complex
-	common_targs += -e cv32e40p
+# 	common_targs += -e cv32e40p
 else
 	common_targs += -t opope_hwpe
-	common_targs += -e cv32e40x
+# 	common_targs += -e cv32e40x
 endif
 
 common_targs += -t DEBUG
