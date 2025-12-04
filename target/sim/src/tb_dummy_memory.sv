@@ -20,7 +20,7 @@ module tb_dummy_memory
   input  logic                clk_i,
   input  logic                rst_ni,
   input  logic                clk_delayed_i,
-  input  logic                randomize_i,
+  // input  logic                randomize_i,
   input  logic                enable_i,
   input  logic                stallable_i,
   hwpe_stream_intf_tcdm.slave tcdm [MP-1:0]
@@ -75,12 +75,12 @@ module tb_dummy_memory
       assign tcdm[ii].r_valid = tcdm_r_valid [ii];
     end
 
-    always_ff @(posedge clk_i)
-    begin
-      if(randomize_i)
-        for(int i=0; i<MEMORY_SIZE; i++)
-          memory[i] = $random();
-    end
+    // always_ff @(posedge clk_i)
+    // begin
+    //   if(randomize_i)
+    //     for(int i=0; i<MEMORY_SIZE; i++)
+    //       memory[i] = $random();
+    // end
 
   endgenerate
 

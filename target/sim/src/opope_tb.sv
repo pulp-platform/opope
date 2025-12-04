@@ -200,20 +200,22 @@ module opope_tb
     );
   end
 
-
-
+`ifndef OPOPE_HWPE_SYNTH
   opope_wrap #(
-    .ID_WIDTH           ( ID                 ),
-    .N_CORES            ( NC                 ),
-    .DW                 ( DW                 ),
-    .MP                 ( DW/32              ),
-    .EW                 ( EW                 )
-  ) i_opope_wrap      (
+    .ID_WIDTH ( ID     ),
+    .N_CORES  ( NC     ),
+    .DW       ( DW     ),
+    .MP       ( DW/32  ),
+    .EW       ( EW     )
+  ) i_opope_wrap (
+`else
+  opope_wrap i_opope_wrap (
+`endif
     .clk_i              ( clk_i              ),
     .rst_ni             ( rst_ni             ),
     .test_mode_i        ( test_mode          ),
     .evt_o              ( evt                ),
-    .busy_o             ( opope_busy       ),
+    .busy_o             ( opope_busy         ),
     .tcdm_req_o         ( tcdm_req           ),
     .tcdm_add_o         ( tcdm_add           ),
     .tcdm_wen_o         ( tcdm_wen           ),
@@ -251,7 +253,7 @@ module opope_tb
     .clk_i          ( clk_i         ),
     .rst_ni         ( rst_ni        ),
     .clk_delayed_i  ( '0            ),
-    .randomize_i    ( 1'b0          ),
+    // .randomize_i    ( 1'b0          ),
     .enable_i       ( 1'b1          ),
     .stallable_i    ( 1'b1          ),
     .tcdm           ( tcdm          )
@@ -269,7 +271,7 @@ module opope_tb
     .clk_i          ( clk_i       ),
     .rst_ni         ( rst_ni      ),
     .clk_delayed_i  ( '0          ),
-    .randomize_i    ( 1'b0        ),
+    // .randomize_i    ( 1'b0        ),
     .enable_i       ( 1'b1        ),
     .stallable_i    ( 1'b0        ),
     .tcdm           ( instr       )
@@ -287,7 +289,7 @@ module opope_tb
     .clk_i               ( clk_i             ),
     .rst_ni              ( rst_ni            ),
     .clk_delayed_i       ( '0                ),
-    .randomize_i         ( 1'b0              ),
+    // .randomize_i         ( 1'b0              ),
     .enable_i            ( 1'b1              ),
     .stallable_i         ( 1'b0              ),
     .tcdm                ( stack             )
@@ -405,14 +407,10 @@ module opope_tb
   
   logic check_start_config, prev_check_start_config;
   logic prev_finished_opope, finished_opope;
-  
-  assign check_start_config = (periph_req && (periph_add[7:0] == 'h54) && (!periph_wen) && (periph_gnt)) ? 1'b1: 1'b0;
+  logic busy_q;
 
-`ifdef OPOPE_HWPE_SYNTH
-  assign finished_opope = i_opope_wrap.i_opope_top.i_control.cntrl_scheduler_finished_;
-`else
-  assign finished_opope = i_opope_wrap.i_opope_top.i_control.cntrl_scheduler.finished;
-`endif
+  assign check_start_config = (periph_req && (periph_add[7:0] == 'h54) && (!periph_wen) && (periph_gnt)) ? 1'b1: 1'b0;
+  assign finished_opope = !i_opope_wrap.i_opope_top.i_control.busy_o & busy_q;
 
   always_ff @(posedge clk_i) begin 
     if (!periphery_counting && (prev_check_start_config == 1'b0) && (check_start_config == 1'b1)) begin 
@@ -423,7 +421,7 @@ module opope_tb
       periphery_counting <= 0;
       periphery_end_counter <= global_counter;
     end
-
+  busy_q <= i_opope_wrap.i_opope_top.i_control.busy_o;
   prev_check_start_config <= check_start_config;
   prev_finished_opope <= finished_opope;
   end
