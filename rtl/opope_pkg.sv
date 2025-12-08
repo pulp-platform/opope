@@ -328,7 +328,7 @@ package opope_pkg;
     logic shift_acc           ;
   } cntrl_engine_t;
 
-  typedef enum {
+  typedef enum logic [1:0] {
     CV32P ,
     CV32X ,
     Ibex  ,

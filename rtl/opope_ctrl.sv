@@ -331,6 +331,7 @@ module opope_ctrl
     done_d             = done_q ;
     finished           = 1'b0;
     start_computing    = 1'b0;
+    streamer_change_state =  1'b0;
     
     case (streamer_current)
       STREAMER_Y  : begin
@@ -530,15 +531,15 @@ module opope_ctrl
     z_read_row_index_d    = z_read_row_index_q   ;
     prefetched_d          = prefetched_q         ;
     acc_done_d            = acc_done_q           ;
-
-    acc_change_state              = 1'b0;
-    y_bias_selector               = 1'b0;
-    acc_input_selector            = 1'b0;
-    external_loading              = 1'b0;
-    in_ready_o                    = 1'b0;
-    out_valid_o                   = 1'b0;
-    y_ready_o                     = 1'b0;
-    shift_acc                     = 1'b0;
+    acc_change_state      = 1'b0;
+    y_bias_selector       = 1'b0;
+    acc_input_selector    = 1'b0;
+    external_loading      = 1'b0;
+    in_ready_o            = 1'b0;
+    out_valid_o           = 1'b0;
+    y_ready_o             = 1'b0;
+    shift_acc             = 1'b0;
+    ce_enable             = 1'b0;                
 
     case (acc_state_current)
     // -------------------------------------------------------------------------------------------------------------------------------------

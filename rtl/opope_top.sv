@@ -66,7 +66,8 @@ flgs_scheduler_t  flgs_scheduler;
 
 logic mask_y, mask_z;
 logic y_ready,z_valid;
-
+logic z_ready;
+logic ce_clk_en;
 
 logic                           in_ready;
 logic y_valid;
