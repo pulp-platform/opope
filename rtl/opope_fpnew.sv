@@ -16,44 +16,26 @@ module opope_fpnew
   parameter logic                    Stallable   = 1'b0                         ,
   localparam int unsigned            BITW        = fpnew_pkg::fp_width(FpFormat)
 )(
-  input  logic                               clk_i             ,
-  input  logic                               rst_ni            ,
-  input  logic                    [BITW-1:0] x_input_i         ,
-  input  logic                    [BITW-1:0] w_input_i         ,
-  input  logic                    [BITW-1:0] y_bias_i          ,
-  input  logic                    [2:0]      fma_is_boxed_i    ,
-  input  logic                    [1:0]      noncomp_is_boxed_i,
-  input  fpnew_pkg::roundmode_e              stage1_rnd_i      ,
-  input  fpnew_pkg::roundmode_e              stage2_rnd_i      ,
-  input  fpnew_pkg::operation_e              op1_i             ,
-  input  fpnew_pkg::operation_e              op2_i             ,
-  input  fpu_fmt_e                           memory_fmt_i      ,
-  input  fpu_fmt_e                           computing_fmt_i   ,
-  input  logic                               same_fmt_i        , 
-  input  logic                               op_mod_i          ,
-  input  TagType                             tag_i             ,
-  input  AuxType                             aux_i             ,
-  input  logic                               in_valid_i        ,
-  output logic                               in_ready_o        ,
-  input  logic                               reg_enable_i      ,
-  input  logic                               flush_i           ,
-  output logic                    [BITW-1:0] z_output_o        ,
-  output fpnew_pkg::status_t                 status_o          ,
-  output logic                               extension_bit_o   ,
-  output fpnew_pkg::classmask_e              class_mask_o      ,
-  output logic                               is_class_o        ,
-  output TagType                             tag_o             ,
-  output AuxType                             aux_o             ,
-  output logic                               out_valid_o       ,
-  input  logic                               out_ready_i       ,
-  output logic                               busy_o
+  input  logic                 clk_i             ,
+  input  logic                 rst_ni            ,
+  input  logic [2:0][BITW-1:0] operands_i        ,
+  input  logic                 same_fmt_i        ,
+  input  logic                 in_valid_i        ,
+  input  logic                 reg_enable_i      ,
+  output logic      [BITW-1:0] z_output_o        
 );
 
   logic clk;
-  fpnew_pkg::fp_format_e  memory_fmt_fpnew; 
-  fpnew_pkg::fp_format_e  computing_fmt_fpnew; 
-  assign memory_fmt_fpnew = fpnew_pkg::fp_format_e'(memory_fmt_i);
-  assign computing_fmt_fpnew = fpnew_pkg::fp_format_e'(computing_fmt_i);
+  fpnew_pkg::fp_format_e  src_fmt; 
+  fpnew_pkg::fp_format_e  dst_fmt;
+  fpnew_pkg::operation_e  op     ;
+  assign src_fmt = FpFormat==FP32 && same_fmt_i ? fpnew_pkg::FP32 :
+                   FpFormat==FP32 &~ same_fmt_i ? fpnew_pkg::FP16 :
+                   FpFormat==FP16 && same_fmt_i ? fpnew_pkg::FP16 : fpnew_pkg::FP8;
+
+  assign dst_fmt = FpFormat;
+
+  assign op = same_fmt_i ? fpnew_pkg::FMADD : fpnew_pkg::SDOTP;
 
   tc_clk_gating fma_clk_gating (
     .clk_i      ( clk_i        ),
@@ -155,31 +137,31 @@ module opope_fpnew
     };
   localparam fpnew_pkg::fpu_implementation_t FPUImplementation   = (FpFormat==FP32) ? FPUImplementation32 : FPUImplementation16;
   fpnew_top #(
-    .Features                   (OPOPE_FPU         ),
-    .Implementation             (FPUImplementation )
+    .Features       (OPOPE_FPU        ),
+    .Implementation (FPUImplementation)
   ) i_fpu (
-    .clk_i          (clk                             ),
-    .rst_ni         (rst_ni                          ),
-    .hart_id_i      ('0                              ),
-    .flush_i        (flush_i                         ),
-    .busy_o         (busy_o                          ),
-    .operands_i     ({y_bias_i, w_input_i, x_input_i}),
-    .in_valid_i     (in_valid_i                      ),
-    .in_ready_o     (in_ready_o                      ),
-    .op_i           (op1_i                           ),
-    .src_fmt_i      (computing_fmt_fpnew             ),
-    .dst_fmt_i      (memory_fmt_fpnew                ),
-    .int_fmt_i      (fpnew_pkg::int_format_e'(INT32) ),
-    .vectorial_op_i ('0                              ),
-    .op_mod_i       (op_mod_i                        ),
-    .tag_i          (tag_i                           ),
-    .simd_mask_i    ('0                              ),
-    .rnd_mode_i     (roundmode_e'(fpnew_pkg::RNE)    ),
-    .result_o       (z_output_o                      ),
-    .out_valid_o    (out_valid_o                     ),
-    .out_ready_i    (out_ready_i                     ),
-    .status_o       (status_o                        ),
-    .tag_o          (tag_o                           )
+    .clk_i          (clk              ),
+    .rst_ni         (rst_ni           ),
+    .hart_id_i      ('0               ),
+    .flush_i        (1'b0             ),
+    .busy_o         (                 ),
+    .operands_i     (operands_i       ),
+    .in_valid_i     (in_valid_i       ),
+    .in_ready_o     (                 ),
+    .op_i           (op               ),
+    .src_fmt_i      (src_fmt          ),
+    .dst_fmt_i      (dst_fmt          ),
+    .int_fmt_i      (fpnew_pkg::INT32 ),
+    .vectorial_op_i ('0               ),
+    .op_mod_i       (1'b0             ),
+    .tag_i          (1'b0             ),
+    .simd_mask_i    ('0               ),
+    .rnd_mode_i     (fpnew_pkg::RNE   ),
+    .result_o       (z_output_o       ),
+    .out_valid_o    (                 ),
+    .out_ready_i    (1'b1             ),
+    .status_o       (                 ),
+    .tag_o          (                 )
   );
 
 endmodule: opope_fpnew

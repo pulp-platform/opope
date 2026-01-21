@@ -49,53 +49,29 @@ module opope_sdotp #(
                                                               // Supported destination formats (FP16, FP16ALTt, FP32)
   parameter int unsigned             NumPipeRegs = 0,
   parameter fpnew_pkg::pipe_config_t PipeConfig  = fpnew_pkg::BEFORE,
-  parameter type                     TagType     = logic,
-  parameter type                     AuxType     = logic,
   parameter fpnew_pkg::rsr_impl_t    StochasticRndImplementation = fpnew_pkg::DEFAULT_NO_RSR,
   parameter logic                    Stallable = 1'b0,
 // Do not change
-  localparam int unsigned SRC_WIDTH = fpnew_pkg::max_fp_width(SrcDotpFpFmtConfig),
-  localparam int unsigned DST_WIDTH = fpnew_pkg::max_fp_width(DstDotpFpFmtConfig), // must be 2*SRC_WIDTH (expanding SDOTP)
+  localparam int unsigned           SRC_WIDTH = fpnew_pkg::max_fp_width(SrcDotpFpFmtConfig),
+  localparam int unsigned           DST_WIDTH = fpnew_pkg::max_fp_width(DstDotpFpFmtConfig), // must be 2*SRC_WIDTH (expanding SDOTP)
+  localparam fpnew_pkg::fp_format_e SRC_FMT   = SrcDotpFpFmtConfig == 6'h08 ? fpnew_pkg::FP16    :
+                                                SrcDotpFpFmtConfig == 6'h02 ? fpnew_pkg::FP16ALT :
+                                                SrcDotpFpFmtConfig == 6'h01 ? fpnew_pkg::FP8ALT  : fpnew_pkg::FP8,
+  localparam fpnew_pkg::fp_format_e DST_FMT   = DstDotpFpFmtConfig == 6'h20 ? fpnew_pkg::FP32    :
+                                                DstDotpFpFmtConfig == 6'h02 ? fpnew_pkg::FP16ALT : fpnew_pkg::FP16,
   localparam int unsigned NUM_FORMATS = fpnew_pkg::NUM_FP_FORMATS
 ) (
   input  logic                        clk_i,
   input  logic                        rst_ni,
-  input  logic [33:0]                 sdotp_hart_id_i,
   // Input signals
-  // op_a and op_c will contain useful bits in [SRC_WIDTH-1:0] for EXSDOTP, EXVSUM
-  // op_a and op_c will contain useful bits in [DST_WIDTH-1:0] for VSUM (non-expanding)
-  // op_b and op_d are neglected for non-expanding VSUM
   input  logic [DST_WIDTH-1:0]        operand_a_i,
   input  logic [SRC_WIDTH-1:0]        operand_b_i,
   input  logic [DST_WIDTH-1:0]        operand_c_i,
   input  logic [SRC_WIDTH-1:0]        operand_d_i,
   input  logic [DST_WIDTH-1:0]        dst_operands_i, // accumulator
-  input  logic [NUM_FORMATS-1:0][4:0] is_boxed_i,     // 5 operands
-  input  fpnew_pkg::roundmode_e       rnd_mode_i,
-  input  fpnew_pkg::operation_e       op_i,
-  input  logic                        op_mod_i,
-  input  fpnew_pkg::fp_format_e       src_fmt_i, // format of op_a, op_b, op_c, op_d
-  input  fpnew_pkg::fp_format_e       dst_fmt_i, // format of the accumulator (op_e) and result
-  input  TagType                      tag_i,
-  input  logic                        mask_i,
-  input  AuxType                      aux_i,
-  // Input Handshake
-  input  logic                        in_valid_i,
-  output logic                        in_ready_o,
   input  logic                        reg_enable_i,
-  input  logic                        flush_i,
   // Output signals
-  output logic [DST_WIDTH-1:0]        result_o,
-  output fpnew_pkg::status_t          status_o,
-  output logic                        extension_bit_o,
-  output TagType                      tag_o,
-  output logic                        mask_o,
-  output AuxType                      aux_o,
-  // Output handshake
-  output logic                        out_valid_o,
-  input  logic                        out_ready_i,
-  // Indication of valid data in flight
-  output logic                        busy_o
+  output logic [DST_WIDTH-1:0]        result_o
 );
 
   // ----------
@@ -170,8 +146,6 @@ module opope_sdotp #(
   logic [DST_WIDTH-1:0]  operand_c_q;
   logic [SRC_WIDTH-1:0]  operand_d_q;
   logic [DST_WIDTH-1:0]  dst_operands_q;
-  fpnew_pkg::fp_format_e src_fmt_q;
-  fpnew_pkg::fp_format_e dst_fmt_q;
 
   // Input pipeline signals, index i holds signal after i register stages
   logic                  [0:NUM_INP_REGS][DST_WIDTH-1:0]        inp_pipe_operand_a_q;
@@ -179,18 +153,6 @@ module opope_sdotp #(
   logic                  [0:NUM_INP_REGS][DST_WIDTH-1:0]        inp_pipe_operand_c_q;
   logic                  [0:NUM_INP_REGS][SRC_WIDTH-1:0]        inp_pipe_operand_d_q;
   logic                  [0:NUM_INP_REGS][DST_WIDTH-1:0]        inp_pipe_dst_operands_q;
-  logic                  [0:NUM_INP_REGS][NUM_FORMATS-1:0][4:0] inp_pipe_is_boxed_q;
-  fpnew_pkg::roundmode_e [0:NUM_INP_REGS]                       inp_pipe_rnd_mode_q;
-  fpnew_pkg::operation_e [0:NUM_INP_REGS]                       inp_pipe_op_q;
-  logic                  [0:NUM_INP_REGS]                       inp_pipe_op_mod_q;
-  fpnew_pkg::fp_format_e [0:NUM_INP_REGS]                       inp_pipe_src_fmt_q;
-  fpnew_pkg::fp_format_e [0:NUM_INP_REGS]                       inp_pipe_dst_fmt_q;
-  TagType                [0:NUM_INP_REGS]                       inp_pipe_tag_q;
-  logic                  [0:NUM_INP_REGS]                       inp_pipe_mask_q;
-  AuxType                [0:NUM_INP_REGS]                       inp_pipe_aux_q;
-  logic                  [0:NUM_INP_REGS]                       inp_pipe_valid_q;
-  // Ready signal is combinatorial for all stages
-  logic [0:NUM_INP_REGS] inp_pipe_ready;
 
   // Input stage: First element of pipeline is taken from inputs
   assign inp_pipe_operand_a_q[0]    = operand_a_i;
@@ -198,49 +160,21 @@ module opope_sdotp #(
   assign inp_pipe_operand_c_q[0]    = operand_c_i;
   assign inp_pipe_operand_d_q[0]    = operand_d_i;
   assign inp_pipe_dst_operands_q[0] = dst_operands_i;
-  assign inp_pipe_is_boxed_q[0]     = is_boxed_i;
-  assign inp_pipe_rnd_mode_q[0]     = rnd_mode_i;
-  assign inp_pipe_op_q[0]           = op_i;
-  assign inp_pipe_op_mod_q[0]       = op_mod_i;
-  assign inp_pipe_src_fmt_q[0]      = src_fmt_i;
-  assign inp_pipe_dst_fmt_q[0]      = dst_fmt_i;
-  assign inp_pipe_tag_q[0]          = tag_i;
-  assign inp_pipe_mask_q[0]         = mask_i;
-  assign inp_pipe_aux_q[0]          = aux_i;
-  assign inp_pipe_valid_q[0]        = in_valid_i;
-  // Input stage: Propagate pipeline ready signal to updtream circuitry
-  assign in_ready_o = inp_pipe_ready[0];
   // Generate the register stages
   for (genvar i = 0; i < NUM_INP_REGS; i++) begin : gen_input_pipeline
     // Internal register enable for this stage
     logic reg_ena;
-    // Determine the ready signal of the current stage - advance the pipeline:
-    // 1. if the next stage is ready for our data
-    // 2. if the next stage only holds a bubble (not valid) -> we can pop it
-    assign inp_pipe_ready[i] = inp_pipe_ready[i+1] | ~inp_pipe_valid_q[i+1];
-    // Enable register if pipleine ready and a valid data item is present
     if (Stallable) begin: gen_inp_stallable
-      assign reg_ena = inp_pipe_ready[i] & inp_pipe_valid_q[i] & reg_enable_i;
+      assign reg_ena = reg_enable_i;
     end else begin: gen_inp_non_stallable
-      assign reg_ena = inp_pipe_ready[i] & inp_pipe_valid_q[i];
+      assign reg_ena = 1'b0;
     end
-    // Generate the pipeline registers within the stages, use enable-registers
-    // Valid: enabled by ready signal, synchronous clear with the flush signal
-    `FFLARNC(inp_pipe_valid_q[i+1], inp_pipe_valid_q[i], reg_ena, flush_i, 1'b0, clk_i, rst_ni)    
+    // Generate the pipeline registers within the stages, use enable-registers  
     `FFL(inp_pipe_operand_a_q[i+1],    inp_pipe_operand_a_q[i],    reg_ena, '0)
     `FFL(inp_pipe_operand_b_q[i+1],    inp_pipe_operand_b_q[i],    reg_ena, '0)
     `FFL(inp_pipe_operand_c_q[i+1],    inp_pipe_operand_c_q[i],    reg_ena, '0)
     `FFL(inp_pipe_operand_d_q[i+1],    inp_pipe_operand_d_q[i],    reg_ena, '0)
     `FFL(inp_pipe_dst_operands_q[i+1], inp_pipe_dst_operands_q[i], reg_ena, '0)
-    `FFL(inp_pipe_is_boxed_q[i+1],     inp_pipe_is_boxed_q[i],     reg_ena, '0)
-    `FFL(inp_pipe_rnd_mode_q[i+1],     inp_pipe_rnd_mode_q[i],     reg_ena, fpnew_pkg::RNE)
-    `FFL(inp_pipe_op_q[i+1],           inp_pipe_op_q[i],           reg_ena, fpnew_pkg::SDOTP)
-    `FFL(inp_pipe_op_mod_q[i+1],       inp_pipe_op_mod_q[i],       reg_ena, '0)
-    `FFL(inp_pipe_src_fmt_q[i+1],      inp_pipe_src_fmt_q[i],      reg_ena, fpnew_pkg::FP8)
-    `FFL(inp_pipe_dst_fmt_q[i+1],      inp_pipe_dst_fmt_q[i],      reg_ena, fpnew_pkg::FP16)
-    `FFL(inp_pipe_tag_q[i+1],          inp_pipe_tag_q[i],          reg_ena, TagType'('0))
-    `FFL(inp_pipe_mask_q[i+1],         inp_pipe_mask_q[i],         reg_ena, '0)
-    `FFL(inp_pipe_aux_q[i+1],          inp_pipe_aux_q[i],          reg_ena, AuxType'('0))
   end
   // Output stage: assign selected pipe outputs to signals for later use
   assign operand_a_q    = inp_pipe_operand_a_q[NUM_INP_REGS];
@@ -248,8 +182,6 @@ module opope_sdotp #(
   assign operand_c_q    = inp_pipe_operand_c_q[NUM_INP_REGS];
   assign operand_d_q    = inp_pipe_operand_d_q[NUM_INP_REGS];
   assign dst_operands_q = inp_pipe_dst_operands_q[NUM_INP_REGS];
-  assign src_fmt_q      = inp_pipe_src_fmt_q[NUM_INP_REGS];
-  assign dst_fmt_q      = inp_pipe_dst_fmt_q[NUM_INP_REGS];
 
   logic [3:0][SRC_WIDTH-1:0] operands_post_inp_pipe;
   // vivado fix: loop is here to make it work on vivado
@@ -272,7 +204,6 @@ module opope_sdotp #(
   logic        [NUM_FORMATS-1:0][3:0][SUPER_MAN_BITS-1:0] fmt_mantissa;
 
   fpnew_pkg::fp_info_t [NUM_FORMATS-1:0][4:0] info_q;
-  fpnew_pkg::fp_info_t [NUM_FORMATS-1:0][1:0] info_vsum_q;
 
   // FP Input initialization (Src)
   for (genvar fmt = 0; fmt < int'(NUM_FORMATS); fmt++) begin : fmt_src_init_inputs
@@ -289,9 +220,9 @@ module opope_sdotp #(
         .FpFormat    ( fpnew_pkg::fp_format_e'(fmt) ),
         .NumOperands ( 4                            )
       ) i_fpnew_classifier (
-        .operands_i  ( trimmed_ops                                 ),
-        .is_boxed_i  ( inp_pipe_is_boxed_q[NUM_INP_REGS][fmt][3:0] ),
-        .info_o      ( info_q[fmt][3:0]                            )
+        .operands_i  ( trimmed_ops      ),
+        .is_boxed_i  ( '1               ),
+        .info_o      ( info_q[fmt][3:0] )
       );
       for (genvar op = 0; op < 4; op++) begin : gen_operands
         assign trimmed_ops[op]       = operands_post_inp_pipe[op][FP_WIDTH-1:0];
@@ -305,52 +236,6 @@ module opope_sdotp #(
       assign fmt_sign[fmt]     = fpnew_pkg::DONT_CARE;             // format disabled
       assign fmt_exponent[fmt] = '{default: fpnew_pkg::DONT_CARE}; // format disabled
       assign fmt_mantissa[fmt] = '{default: fpnew_pkg::DONT_CARE}; // format disabled
-    end
-  end
-
-  // ----------------------------
-  // Non-expanding VSUM operands
-  // ----------------------------
-  logic        [NUM_FORMATS-1:0][1:0]                         fmt_vsum_sign;
-  logic signed [NUM_FORMATS-1:0][1:0][SUPER_DST_EXP_BITS-1:0] fmt_vsum_exponent;
-  logic        [NUM_FORMATS-1:0][1:0][SUPER_DST_MAN_BITS-1:0] fmt_vsum_mantissa;
-
-  // FP Input initialization (Src)
-  for (genvar fmt = 0; fmt < int'(NUM_FORMATS); fmt++) begin : fmt_vsum_init_inputs
-    // Set up some constants
-    localparam int unsigned FP_WIDTH = fpnew_pkg::fp_width(fpnew_pkg::fp_format_e'(fmt));
-    localparam int unsigned EXP_BITS = fpnew_pkg::exp_bits(fpnew_pkg::fp_format_e'(fmt));
-    localparam int unsigned MAN_BITS = fpnew_pkg::man_bits(fpnew_pkg::fp_format_e'(fmt));
-
-    if (DstDotpFpFmtConfig[fmt]) begin : active_vsum_format
-      logic [1:0][FP_WIDTH-1:0] trimmed_vsum_ops;
-      logic [1:0]               vsum_ops_is_boxed;
-
-      assign vsum_ops_is_boxed = {inp_pipe_is_boxed_q[NUM_INP_REGS][fmt][2],
-                                  inp_pipe_is_boxed_q[NUM_INP_REGS][fmt][0]};
-
-      // Classify input
-      fpnew_classifier #(
-        .FpFormat    ( fpnew_pkg::fp_format_e'(fmt) ),
-        .NumOperands ( 2                            )
-      ) i_fpnew_classifier (
-        .operands_i  ( trimmed_vsum_ops  ),
-        .is_boxed_i  ( vsum_ops_is_boxed ),
-        .info_o      ( info_vsum_q[fmt]  )
-      );
-      assign trimmed_vsum_ops          = {operand_c_q[FP_WIDTH-1:0], operand_a_q[FP_WIDTH-1:0]};
-      assign fmt_vsum_sign[fmt]        = {operand_c_q[FP_WIDTH-1], operand_a_q[FP_WIDTH-1]};
-      assign fmt_vsum_exponent[fmt][1] = signed'({1'b0, operand_c_q[MAN_BITS+:EXP_BITS]});
-      assign fmt_vsum_exponent[fmt][0] = signed'({1'b0, operand_a_q[MAN_BITS+:EXP_BITS]});
-      assign fmt_vsum_mantissa[fmt][1] = {info_vsum_q[fmt][1].is_normal, operand_c_q[MAN_BITS-1:0]}
-                                         << (SUPER_DST_MAN_BITS - MAN_BITS);
-      assign fmt_vsum_mantissa[fmt][0] = {info_vsum_q[fmt][0].is_normal, operand_a_q[MAN_BITS-1:0]}
-                                         << (SUPER_DST_MAN_BITS - MAN_BITS);
-    end else begin : inactive_dst_format
-      assign info_vsum_q[fmt]       = '{default: fpnew_pkg::DONT_CARE}; // format disabled
-      assign fmt_vsum_sign[fmt]     = fpnew_pkg::DONT_CARE;             // format disabled
-      assign fmt_vsum_exponent[fmt] = '{default: fpnew_pkg::DONT_CARE}; // format disabled
-      assign fmt_vsum_mantissa[fmt] = '{default: fpnew_pkg::DONT_CARE}; // format disabled
     end
   end
 
@@ -377,7 +262,7 @@ module opope_sdotp #(
         .NumOperands ( 1                            )
       ) i_fpnew_classifier (
         .operands_i ( trimmed_dst_ops                           ),
-        .is_boxed_i ( inp_pipe_is_boxed_q[NUM_INP_REGS][fmt][4] ),
+        .is_boxed_i ( '1                                        ),
         .info_o     ( info_q[fmt][4]                            )
       );
       assign trimmed_dst_ops       = dst_operands_q[FP_WIDTH-1:0];
@@ -398,7 +283,6 @@ module opope_sdotp #(
   // -------------------------------------------
   fp_src_t             operand_a, operand_b, operand_c, operand_d;
   fp_dst_t             operand_e;
-  fp_dst_t             operand_a_vsum, operand_c_vsum;
   fpnew_pkg::fp_info_t info_a, info_b, info_c, info_d, info_e;
   logic                a_sign, c_sign;
 
@@ -406,63 +290,25 @@ module opope_sdotp #(
   // |:--------:|:-----------:|---------------------
   // | SDOTP    | \c 0        | SDOTP:  none
   // | SDOTP    | \c 1        | SDOTPN: Invert the sign of the first and second products (accumulator - dotp)
-  // | EXVSUM   | \c 0        | EXVSUM: none
-  // | EXVSUM   | \c 1        | EXVSUM: Invert the sign of the first and second addends
-  // | VSUM     | \c 0        | VSUM:   none
-  // | VSUM     | \c 1        | VSUM:   Invert the sign of the first and second addends
   // | *others* | \c -        | *invalid*
   // \note \c op_mod_q always inverts the sign of the addend.
   always_comb begin : op_select
     // Default assignments - packing-order-agnostic
-    operand_a = {fmt_sign[src_fmt_q][0], fmt_exponent[src_fmt_q][0], fmt_mantissa[src_fmt_q][0]};
-    operand_b = {fmt_sign[src_fmt_q][1], fmt_exponent[src_fmt_q][1], fmt_mantissa[src_fmt_q][1]};
-    operand_c = {fmt_sign[src_fmt_q][2], fmt_exponent[src_fmt_q][2], fmt_mantissa[src_fmt_q][2]};
-    operand_d = {fmt_sign[src_fmt_q][3], fmt_exponent[src_fmt_q][3], fmt_mantissa[src_fmt_q][3]};
-    operand_e = {fmt_dst_sign[dst_fmt_q], fmt_dst_exponent[dst_fmt_q], fmt_dst_mantissa[dst_fmt_q]};
-    operand_a_vsum = {fmt_vsum_sign[src_fmt_q][0], fmt_vsum_exponent[src_fmt_q][0], fmt_vsum_mantissa[src_fmt_q][0]};
-    operand_c_vsum = {fmt_vsum_sign[src_fmt_q][1], fmt_vsum_exponent[src_fmt_q][1], fmt_vsum_mantissa[src_fmt_q][1]};
-    info_a    = info_q[src_fmt_q][0];
-    info_b    = info_q[src_fmt_q][1];
-    info_c    = info_q[src_fmt_q][2];
-    info_d    = info_q[src_fmt_q][3];
-    info_e    = info_q[dst_fmt_q][4];
+    operand_a = {fmt_sign[SRC_FMT][0], fmt_exponent[SRC_FMT][0], fmt_mantissa[SRC_FMT][0]};
+    operand_b = {fmt_sign[SRC_FMT][1], fmt_exponent[SRC_FMT][1], fmt_mantissa[SRC_FMT][1]};
+    operand_c = {fmt_sign[SRC_FMT][2], fmt_exponent[SRC_FMT][2], fmt_mantissa[SRC_FMT][2]};
+    operand_d = {fmt_sign[SRC_FMT][3], fmt_exponent[SRC_FMT][3], fmt_mantissa[SRC_FMT][3]};
+    operand_e = {fmt_dst_sign[DST_FMT], fmt_dst_exponent[DST_FMT], fmt_dst_mantissa[DST_FMT]};
+    info_a    = info_q[SRC_FMT][0];
+    info_b    = info_q[SRC_FMT][1];
+    info_c    = info_q[SRC_FMT][2];
+    info_d    = info_q[SRC_FMT][3];
+    info_e    = info_q[DST_FMT][4];
 
     // op_mod_q inverts sign of operand A and C, thus inverting the sign of the dot product
-    operand_a.sign = operand_a.sign ^ inp_pipe_op_mod_q[NUM_INP_REGS];
-    operand_c.sign = operand_c.sign ^ inp_pipe_op_mod_q[NUM_INP_REGS];
     a_sign    = operand_a.sign;
     c_sign    = operand_c.sign;
-    // op_mod_q inverts sign of operand A and C, thus inverting the sign of the vsum
-    operand_a_vsum.sign = operand_a_vsum.sign ^ inp_pipe_op_mod_q[NUM_INP_REGS];
-    operand_c_vsum.sign = operand_c_vsum.sign ^ inp_pipe_op_mod_q[NUM_INP_REGS];
 
-    unique case (inp_pipe_op_q[NUM_INP_REGS])
-      fpnew_pkg::SDOTP:  ; // do nothing
-      fpnew_pkg::VSUM: begin // Set multiplicands coming from rs1 to +1
-        operand_b = '{sign: 1'b0, exponent: fpnew_pkg::bias(src_fmt_q), mantissa: '0};
-        operand_d = '{sign: 1'b0, exponent: fpnew_pkg::bias(src_fmt_q), mantissa: '0};
-        info_b    = '{is_normal: 1'b1, is_boxed: 1'b1, default: 1'b0}; //normal, boxed value.
-        info_d    = '{is_normal: 1'b1, is_boxed: 1'b1, default: 1'b0}; //normal, boxed value.
-        info_a    = info_vsum_q[dst_fmt_q][0];
-        info_c    = info_vsum_q[dst_fmt_q][1];
-        a_sign    = operand_a_vsum.sign;
-        c_sign    = operand_c_vsum.sign;
-      end
-      fpnew_pkg::EXVSUM: begin // Set multiplicands coming from rs1 to +1
-        operand_b = '{sign: 1'b0, exponent: fpnew_pkg::bias(src_fmt_q), mantissa: '0};
-        operand_d = '{sign: 1'b0, exponent: fpnew_pkg::bias(src_fmt_q), mantissa: '0};
-        info_b    = '{is_normal: 1'b1, is_boxed: 1'b1, default: 1'b0}; //normal, boxed value.
-        info_d    = '{is_normal: 1'b1, is_boxed: 1'b1, default: 1'b0}; //normal, boxed value.
-      end
-      default: begin // propagate don't cares
-        operand_a  = '{default: fpnew_pkg::DONT_CARE};
-        operand_b  = '{default: fpnew_pkg::DONT_CARE};
-        operand_c  = '{default: fpnew_pkg::DONT_CARE};
-        info_a     = '{default: fpnew_pkg::DONT_CARE};
-        info_b     = '{default: fpnew_pkg::DONT_CARE};
-        info_c     = '{default: fpnew_pkg::DONT_CARE};
-      end
-    endcase
   end
 
   // ---------------------
@@ -488,11 +334,9 @@ module opope_sdotp #(
   // Special case handling
   // ----------------------
   logic [DST_WIDTH-1:0] special_result;
-  fpnew_pkg::status_t   special_status;
   logic                 result_is_special;
 
   logic               [NUM_FORMATS-1:0][DST_WIDTH-1:0] fmt_special_result;
-  fpnew_pkg::status_t [NUM_FORMATS-1:0]                fmt_special_status;
   logic               [NUM_FORMATS-1:0]                fmt_result_is_special;
 
   for (genvar fmt = 0; fmt < int'(NUM_FORMATS); fmt++) begin : gen_special_results
@@ -511,7 +355,6 @@ module opope_sdotp #(
 
         // Default assignment
         special_res                = {1'b0, QNAN_EXPONENT, QNAN_MANTISSA}; // qNaN
-        fmt_special_status[fmt]    = '0;
         fmt_result_is_special[fmt] = 1'b0;
 
         // Handle potentially mixed nan & infinity input => important for the case where infinity and
@@ -521,20 +364,16 @@ module opope_sdotp #(
         if (  ((info_a.is_inf && info_b.is_zero) || (info_a.is_zero && info_b.is_inf))
            || ((info_c.is_inf && info_d.is_zero) || (info_c.is_zero && info_d.is_inf)) ) begin
           fmt_result_is_special[fmt] = 1'b1; // bypass DOTP, output is the canonical qNaN
-          fmt_special_status[fmt].NV = 1'b1; // invalid operation
         // NaN Inputs cause canonical quiet NaN at the output and maybe invalid OP
         end else if (any_operand_nan) begin
           fmt_result_is_special[fmt] = 1'b1;           // bypass DOTP, output is the canonical qNaN
-          fmt_special_status[fmt].NV = signalling_nan; // raise the invalid operation flag if signalling
         // Special cases involving infinity
         end else if (any_operand_inf) begin
           fmt_result_is_special[fmt] = 1'b1; // bypass DOTP
           // Effective addition of opposite infinities (±inf - ±inf) is invalid!
           if ((info_a.is_inf || info_b.is_inf) && (info_c.is_inf || info_d.is_inf) && effective_subtraction[2]) begin
-            fmt_special_status[fmt].NV = 1'b1; // invalid operation
           end else if (((info_a.is_inf || info_b.is_inf) && info_e.is_inf && effective_subtraction[0])
              || ((info_c.is_inf || info_d.is_inf) && info_e.is_inf && effective_subtraction[1])) begin
-            fmt_special_status[fmt].NV = 1'b1; // invalid operation
           // Handle cases where output will be inf because of inf product input
           end else if (info_a.is_inf || info_b.is_inf) begin
             // Result is infinity with the sign of the first product
@@ -554,24 +393,20 @@ module opope_sdotp #(
       end
     end else begin : inactive_format
       assign fmt_special_result[fmt] = '{default: fpnew_pkg::DONT_CARE};
-      assign fmt_special_status[fmt] = '0;
       assign fmt_result_is_special[fmt] = 1'b0;
     end
   end
 
   // Detect special case from source format
-  assign result_is_special = fmt_result_is_special[dst_fmt_q];
-  // Signalling input NaNs raise invalid flag, otherwise no flags set
-  assign special_status = fmt_special_status[dst_fmt_q];
+  assign result_is_special = fmt_result_is_special[DST_FMT];
   // Assemble result according to destination format
-  assign special_result = fmt_special_result[dst_fmt_q];
+  assign special_result = fmt_special_result[DST_FMT];
 
   // ---------------------------
   // Initial exponent data path
   // ---------------------------
   logic signed [EXP_WIDTH-1:0]     exponent_a, exponent_b, exponent_c, exponent_d;
   logic signed [DST_EXP_WIDTH-1:0] exponent_e;
-  logic signed [DST_EXP_WIDTH-1:0] exponent_a_vsum, exponent_c_vsum;
   logic signed [DST_EXP_WIDTH-1:0] exponent_addend_x, exponent_addend_y, exponent_addend_z;
   logic signed [DST_EXP_WIDTH-1:0] exponent_product_x, exponent_product_y, exponent_difference;
   logic signed [DST_EXP_WIDTH-1:0] exponent_max, exponent_int, exponent_min;
@@ -587,10 +422,8 @@ module opope_sdotp #(
 
   // Zero-extend exponents into signed container - implicit width extension
   assign exponent_a = signed'({1'b0, operand_a.exponent});
-  assign exponent_a_vsum = signed'({1'b0, operand_a_vsum.exponent});
   assign exponent_b = signed'({1'b0, operand_b.exponent});
   assign exponent_c = signed'({1'b0, operand_c.exponent});
-  assign exponent_c_vsum = signed'({1'b0, operand_c_vsum.exponent});
   assign exponent_d = signed'({1'b0, operand_d.exponent});
   assign exponent_e = signed'({1'b0, operand_e.exponent});
 
@@ -598,23 +431,19 @@ module opope_sdotp #(
   // with Ex the encoded exponent and nx the implicit bit. Internal exponents stay biased.
   // Biased product exponent is the sum of encoded exponents minus the bias.
   assign exponent_product_y = (info_c.is_zero || info_d.is_zero)
-                              ? 2 - signed'(fpnew_pkg::bias(dst_fmt_q)) // in case the product is zero, set minimum exp.
+                              ? 2 - signed'(fpnew_pkg::bias(DST_FMT)) // in case the product is zero, set minimum exp.
                               : signed'(exponent_c + info_c.is_subnormal
                                         + exponent_d + info_d.is_subnormal
-                                        - 2*signed'(fpnew_pkg::bias(src_fmt_q))  // rebias for dst fmt
-                                        + signed'(fpnew_pkg::bias(dst_fmt_q)) + 1); // adding +1 to keep into account following shifts
+                                        - 2*signed'(fpnew_pkg::bias(SRC_FMT))  // rebias for dst fmt
+                                        + signed'(fpnew_pkg::bias(DST_FMT)) + 1); // adding +1 to keep into account following shifts
   assign exponent_product_x = (info_a.is_zero || info_b.is_zero)
-                              ? 2 - signed'(fpnew_pkg::bias(dst_fmt_q)) // in case the product is zero, set minimum exp.
+                              ? 2 - signed'(fpnew_pkg::bias(DST_FMT)) // in case the product is zero, set minimum exp.
                               : signed'(exponent_a + info_a.is_subnormal
                                         + exponent_b + info_b.is_subnormal
-                                        - 2*signed'(fpnew_pkg::bias(src_fmt_q))  // rebias for dst fmt
-                                        + signed'(fpnew_pkg::bias(dst_fmt_q)) + 1); // adding +1 to keep into account following shift
-  assign exponent_addend_y = (inp_pipe_op_q[NUM_INP_REGS] == fpnew_pkg::VSUM)
-                             ? signed'(exponent_c_vsum + $signed({1'b0, ~info_c.is_normal}))
-                             : exponent_product_y;
-  assign exponent_addend_x = (inp_pipe_op_q[NUM_INP_REGS] == fpnew_pkg::VSUM)
-                             ? signed'(exponent_a_vsum + $signed({1'b0, ~info_a.is_normal}))
-                             : exponent_product_x;
+                                        - 2*signed'(fpnew_pkg::bias(SRC_FMT))  // rebias for dst fmt
+                                        + signed'(fpnew_pkg::bias(DST_FMT)) + 1); // adding +1 to keep into account following shift
+  assign exponent_addend_y = exponent_product_y;
+  assign exponent_addend_x = exponent_product_x;
   assign exponent_addend_z = signed'(exponent_e + $signed({1'b0, ~info_e.is_normal})); // 0 as subnorm
 
   // Find maximum, intermediate and minimum exponents
@@ -743,7 +572,6 @@ module opope_sdotp #(
   // ------------------
   logic     [PRECISION_BITS-1:0] mantissa_a, mantissa_b, mantissa_c, mantissa_d;
   logic [DST_PRECISION_BITS-1:0] mantissa_e;
-  logic [DST_PRECISION_BITS-1:0] mantissa_a_vsum, mantissa_c_vsum;
   logic   [2*PRECISION_BITS-1:0] product_x, product_y;  // the p*p product is 2p-bit wide
 
   // Add implicit bits to mantissae
@@ -752,9 +580,6 @@ module opope_sdotp #(
   assign mantissa_c = {info_c.is_normal, operand_c.mantissa};
   assign mantissa_d = {info_d.is_normal, operand_d.mantissa};
   assign mantissa_e = {info_e.is_normal, operand_e.mantissa};
-
-  assign mantissa_a_vsum = {info_a.is_normal, operand_a_vsum.mantissa};
-  assign mantissa_c_vsum = {info_c.is_normal, operand_c_vsum.mantissa};
 
   // Mantissa multiplier (a*b)
   assign product_x = mantissa_a * mantissa_b;
@@ -781,10 +606,8 @@ module opope_sdotp #(
   // Bypass the multipliers in case of non-expanding VSUM
   // Place the products in the upper part of the addend in case of expanding operations (The addend
   // uses DST_PRECISION_BITS while 2*PRECISION_BITS might be narrower)
-  assign addend_x = (inp_pipe_op_q[NUM_INP_REGS] == fpnew_pkg::VSUM)
-                      ? mantissa_a_vsum : product_x << ADDITIONAL_PRECISION_BITS;
-  assign addend_y = (inp_pipe_op_q[NUM_INP_REGS] == fpnew_pkg::VSUM)
-                      ? mantissa_c_vsum : product_y << ADDITIONAL_PRECISION_BITS;
+  assign addend_x = product_x << ADDITIONAL_PRECISION_BITS;
+  assign addend_y = product_y << ADDITIONAL_PRECISION_BITS;
   assign addend_z = mantissa_e;
 
   // Sorting the addends
@@ -852,7 +675,7 @@ module opope_sdotp #(
   // final result equal to zero)
   assign sum_exact_zero = (sum == '0) && sum_carry && !sticky_before_add && effective_subtraction_first;
   // In case of a mispredicted subtraction result, do a sign flip
-  assign final_sign = sum_exact_zero ? (inp_pipe_rnd_mode_q[NUM_INP_REGS] == fpnew_pkg::RDN)
+  assign final_sign = sum_exact_zero ? 1'b0
                                         : (effective_subtraction_first && (sum_carry == tentative_sign))
                                               ? 1'b1
                                               : (effective_subtraction_first ? 1'b0 : tentative_sign);
@@ -945,11 +768,8 @@ module opope_sdotp #(
   logic                            sticky_before_add_q;
   logic [2*DST_PRECISION_BITS+2:0] sum_q;
   logic                            final_sign_q;
-  fpnew_pkg::fp_format_e           dst_fmt_q2;
-  fpnew_pkg::roundmode_e           rnd_mode_q;
   logic                            result_is_special_q;
   fp_dst_t                         special_result_q;
-  fpnew_pkg::status_t              special_status_q;
   logic                            sum_carry_q;
   // Internal pipeline signals, index i holds signal after i register stages
   logic                  [0:NUM_MID_REGS]                           mid_pipe_eff_sub_q;
@@ -970,18 +790,9 @@ module opope_sdotp #(
   logic                  [0:NUM_MID_REGS]                           mid_pipe_sticky_q;
   logic                  [0:NUM_MID_REGS][2*DST_PRECISION_BITS+2:0] mid_pipe_sum_q;
   logic                  [0:NUM_MID_REGS]                           mid_pipe_final_sign_q;
-  fpnew_pkg::fp_format_e [0:NUM_MID_REGS]                           mid_pipe_dst_fmt_q;
-  fpnew_pkg::roundmode_e [0:NUM_MID_REGS]                           mid_pipe_rnd_mode_q;
   logic                  [0:NUM_MID_REGS]                           mid_pipe_res_is_spec_q;
   fp_dst_t               [0:NUM_MID_REGS]                           mid_pipe_spec_res_q;
-  fpnew_pkg::status_t    [0:NUM_MID_REGS]                           mid_pipe_spec_stat_q;
-  TagType                [0:NUM_MID_REGS]                           mid_pipe_tag_q;
-  logic                  [0:NUM_MID_REGS]                           mid_pipe_mask_q;
-  AuxType                [0:NUM_MID_REGS]                           mid_pipe_aux_q;
-  logic                  [0:NUM_MID_REGS]                           mid_pipe_valid_q;
   logic                  [0:NUM_MID_REGS]                           mid_pipe_sum_carry_q;
-  // Ready signal is combinatorial for all stages
-  logic [0:NUM_MID_REGS] mid_pipe_ready;
 
   // Input stage: First element of pipeline is taken from upstream logic
   assign mid_pipe_eff_sub_q[0]                = effective_subtraction_first;
@@ -1002,36 +813,20 @@ module opope_sdotp #(
   assign mid_pipe_sticky_q[0]                 = sticky_before_add;
   assign mid_pipe_sum_q[0]                    = sum;
   assign mid_pipe_final_sign_q[0]             = final_sign;
-  assign mid_pipe_rnd_mode_q[0]               = inp_pipe_rnd_mode_q[NUM_INP_REGS];
-  assign mid_pipe_dst_fmt_q[0]                = dst_fmt_q;
   assign mid_pipe_res_is_spec_q[0]            = result_is_special;
   assign mid_pipe_spec_res_q[0]               = special_result;
-  assign mid_pipe_spec_stat_q[0]              = special_status;
-  assign mid_pipe_tag_q[0]                    = inp_pipe_tag_q[NUM_INP_REGS];
-  assign mid_pipe_mask_q[0]                   = inp_pipe_mask_q[NUM_INP_REGS];
-  assign mid_pipe_aux_q[0]                    = inp_pipe_aux_q[NUM_INP_REGS];
-  assign mid_pipe_valid_q[0]                  = inp_pipe_valid_q[NUM_INP_REGS];
   assign mid_pipe_sum_carry_q[0]              = sum_carry;
-  // Input stage: Propagate pipeline ready signal to input pipe
-  assign inp_pipe_ready[NUM_INP_REGS]         = mid_pipe_ready[0];
 
   // Generate the register stages
   for (genvar i = 0; i < NUM_MID_REGS; i++) begin : gen_inside_pipeline
     // Internal register enable for this stage
     logic reg_ena;
-    // Determine the ready signal of the current stage - advance the pipeline:
-    // 1. if the next stage is ready for our data
-    // 2. if the next stage only holds a bubble (not valid) -> we can pop it
-    assign mid_pipe_ready[i] = mid_pipe_ready[i+1] | ~mid_pipe_valid_q[i+1];
-    // Valid: enabled by ready signal, synchronous clear with the flush signal
-    // Enable register if pipleine ready and a valid data item is present
     if (Stallable) begin: gen_mid_stallable
-      assign reg_ena = mid_pipe_ready[i] & mid_pipe_valid_q[i] & reg_enable_i;
+      assign reg_ena = reg_enable_i;
     end else begin: gen_mid_non_stallable
-      assign reg_ena = mid_pipe_ready[i] & mid_pipe_valid_q[i];
+      assign reg_ena = 1'b0;
     end
     // Generate the pipeline registers within the stages, use enable-registers
-    `FFLARNC(mid_pipe_valid_q[i+1], mid_pipe_valid_q[i], reg_ena, flush_i, 1'b0, clk_i, rst_ni)
     `FFL(mid_pipe_eff_sub_q[i+1],             mid_pipe_eff_sub_q[i],             reg_ena, '0)
     `FFL(mid_pipe_final_sign_zero_q[i+1],     mid_pipe_final_sign_zero_q[i],     reg_ena, '0)
     `FFL(mid_pipe_info_min_is_zero_q[i+1],    mid_pipe_info_min_is_zero_q[i],    reg_ena, '0)
@@ -1050,14 +845,8 @@ module opope_sdotp #(
     `FFL(mid_pipe_sticky_q[i+1],              mid_pipe_sticky_q[i],              reg_ena, '0)
     `FFL(mid_pipe_sum_q[i+1],                 mid_pipe_sum_q[i],                 reg_ena, '0)
     `FFL(mid_pipe_final_sign_q[i+1],          mid_pipe_final_sign_q[i],          reg_ena, '0)
-    `FFL(mid_pipe_rnd_mode_q[i+1],            mid_pipe_rnd_mode_q[i],            reg_ena, fpnew_pkg::RNE)
-    `FFL(mid_pipe_dst_fmt_q[i+1],             mid_pipe_dst_fmt_q[i],             reg_ena, fpnew_pkg::FP16)
     `FFL(mid_pipe_res_is_spec_q[i+1],         mid_pipe_res_is_spec_q[i],         reg_ena, '0)
     `FFL(mid_pipe_spec_res_q[i+1],            mid_pipe_spec_res_q[i],            reg_ena, '0)
-    `FFL(mid_pipe_spec_stat_q[i+1],           mid_pipe_spec_stat_q[i],           reg_ena, '0)
-    `FFL(mid_pipe_tag_q[i+1],                 mid_pipe_tag_q[i],                 reg_ena, TagType'('0))
-    `FFL(mid_pipe_mask_q[i+1],                mid_pipe_mask_q[i],                reg_ena, '0)
-    `FFL(mid_pipe_aux_q[i+1],                 mid_pipe_aux_q[i],                 reg_ena, AuxType'('0))
     `FFL(mid_pipe_sum_carry_q[i+1],           mid_pipe_sum_carry_q[i],           reg_ena, '0)
   end
   // Output stage: assign selected pipe outputs to signals for later use
@@ -1080,11 +869,8 @@ module opope_sdotp #(
   assign sticky_before_add_q           = mid_pipe_sticky_q[NUM_MID_REGS];
   assign sum_q                         = mid_pipe_sum_q[NUM_MID_REGS];
   assign final_sign_q                  = mid_pipe_final_sign_q[NUM_MID_REGS];
-  assign rnd_mode_q                    = mid_pipe_rnd_mode_q[NUM_MID_REGS];
-  assign dst_fmt_q2                    = mid_pipe_dst_fmt_q[NUM_MID_REGS];
   assign result_is_special_q           = mid_pipe_res_is_spec_q[NUM_MID_REGS];
   assign special_result_q              = mid_pipe_spec_res_q[NUM_MID_REGS];
-  assign special_status_q              = mid_pipe_spec_stat_q[NUM_MID_REGS];
 
   // ----------------------------------
   // Second Step of the Three-way Adder
@@ -1272,7 +1058,7 @@ module opope_sdotp #(
   logic                                             result_zero;
 
   // Classification before round. RISC-V mandates checking underflow AFTER rounding
-  assign of_before_round = final_exponent >= 2**(fpnew_pkg::exp_bits(dst_fmt_q2))-1; // infinity exponent is all ones
+  assign of_before_round = final_exponent >= 2**(fpnew_pkg::exp_bits(DST_FMT))-1; // infinity exponent is all ones
   assign uf_before_round = final_exponent == 0;               // exponent for subnormals capped to 0
 
   // Pack exponent and mantissa into proper rounding form
@@ -1315,17 +1101,16 @@ module opope_sdotp #(
   end
 
   // Assemble result before rounding. In case of overflow, the largest normal value is set.
-  assign pre_round_abs      = fmt_pre_round_abs[dst_fmt_q2];
+  assign pre_round_abs      = fmt_pre_round_abs[DST_FMT];
 
   // In case of overflow, the round and sticky bits are set for proper rounding
-  assign stochastic_rounding_bits = fmt_stochastic_rounding_bits[dst_fmt_q2];
-  assign round_sticky_bits  = fmt_round_sticky_bits[dst_fmt_q2];
+  assign stochastic_rounding_bits = fmt_stochastic_rounding_bits[DST_FMT];
+  assign round_sticky_bits  = fmt_round_sticky_bits[DST_FMT];
   assign pre_round_sign     = (info_max_is_zero_q && (pre_round_abs == '0) && (| round_sticky_bits))
                               ? final_sign_zero_q : final_sign_z;
 
   logic enable_rsr;
-  assign enable_rsr = (rnd_mode_q == fpnew_pkg::RSR) && (mid_pipe_ready[NUM_MID_REGS]
-                      && mid_pipe_valid_q[NUM_MID_REGS]);
+  assign enable_rsr = '0;
   // Perform the rounding
   fpnew_rounding #(
     .AbsWidth     ( SUPER_DST_EXP_BITS + SUPER_DST_MAN_BITS ),
@@ -1335,13 +1120,13 @@ module opope_sdotp #(
   ) i_fpnew_rounding (
     .clk_i                      ( clk_i                    ),
     .rst_ni                     ( rst_ni                   ),
-    .id_i                       ( sdotp_hart_id_i          ),
+    .id_i                       ( '0                       ),
     .abs_value_i                ( pre_round_abs            ),
     .en_rsr_i                   ( enable_rsr               ),
     .sign_i                     ( pre_round_sign           ),
     .round_sticky_bits_i        ( round_sticky_bits        ),
     .stochastic_rounding_bits_i ( stochastic_rounding_bits ),
-    .rnd_mode_i                 ( rnd_mode_q               ),
+    .rnd_mode_i                 ( fpnew_pkg::RNE           ),
     .effective_subtraction_i    ( effective_subtraction_z  ),
     .abs_rounded_o              ( rounded_abs              ),
     .sign_o                     ( rounded_sign             ),
@@ -1374,85 +1159,43 @@ module opope_sdotp #(
   end
 
   // Classification after rounding select by destination format
-  assign uf_after_round = fmt_uf_after_round[dst_fmt_q2];
-  assign of_after_round = fmt_of_after_round[dst_fmt_q2];
+  assign uf_after_round = fmt_uf_after_round[DST_FMT];
+  assign of_after_round = fmt_of_after_round[DST_FMT];
 
   // -----------------
   // Result selection
   // -----------------
   logic [DST_WIDTH-1:0] regular_result;
-  fpnew_pkg::status_t   regular_status;
 
   // Assemble regular result
-  assign regular_result    = fmt_result[dst_fmt_q2];
-  assign regular_status.NV = 1'b0; // only valid cases are handled in regular path
-  assign regular_status.DZ = 1'b0; // no divisions
-  assign regular_status.OF = of_before_round | of_after_round;   // rounding can introduce overflow
-  assign regular_status.UF = uf_after_round & regular_status.NX; // only inexact results raise UF
-  assign regular_status.NX = (| round_sticky_bits) | of_before_round | of_after_round;
+  assign regular_result    = fmt_result[DST_FMT];
 
   // Final results for output pipeline
   logic [DST_WIDTH-1:0] result_d;
-  fpnew_pkg::status_t   status_d;
 
   // Select output depending on special case detection
   assign result_d = result_is_special_q ? special_result_q : regular_result;
-  assign status_d = result_is_special_q ? special_status_q : regular_status;
 
   // ----------------
   // Output Pipeline
   // ----------------
   // Output pipeline signals, index i holds signal after i register stages
   logic               [0:NUM_OUT_REGS][DST_WIDTH-1:0] out_pipe_result_q;
-  fpnew_pkg::status_t [0:NUM_OUT_REGS]                out_pipe_status_q;
-  TagType             [0:NUM_OUT_REGS]                out_pipe_tag_q;
-  logic               [0:NUM_OUT_REGS]                out_pipe_mask_q;
-  AuxType             [0:NUM_OUT_REGS]                out_pipe_aux_q;
-  logic               [0:NUM_OUT_REGS]                out_pipe_valid_q;
-  // Ready signal is combinatorial for all stages
-  logic [0:NUM_OUT_REGS] out_pipe_ready;
 
   // Input stage: First element of pipeline is taken from inputs
   assign out_pipe_result_q[0] = result_d;
-  assign out_pipe_status_q[0] = status_d;
-  assign out_pipe_tag_q[0]    = mid_pipe_tag_q[NUM_MID_REGS];
-  assign out_pipe_mask_q[0]   = mid_pipe_mask_q[NUM_MID_REGS];
-  assign out_pipe_aux_q[0]    = mid_pipe_aux_q[NUM_MID_REGS];
-  assign out_pipe_valid_q[0]  = mid_pipe_valid_q[NUM_MID_REGS];
-  // Input stage: Propagate pipeline ready signal to inside pipe
-  assign mid_pipe_ready[NUM_MID_REGS] = out_pipe_ready[0];
   // Generate the register stages
   for (genvar i = 0; i < NUM_OUT_REGS; i++) begin : gen_output_pipeline
     // Internal register enable for this stage
     logic reg_ena;
-    // Determine the ready signal of the current stage - advance the pipeline:
-    // 1. if the next stage is ready for our data
-    // 2. if the next stage only holds a bubble (not valid) -> we can pop it
-    assign out_pipe_ready[i] = out_pipe_ready[i+1] | ~out_pipe_valid_q[i+1];
-    // Enable register if pipleine ready and a valid data item is present
     if (Stallable) begin: gen_out_stallable
-      assign reg_ena = out_pipe_ready[i] & out_pipe_valid_q[i] & reg_enable_i;
+      assign reg_ena = reg_enable_i;
     end else begin: gen_out_non_stallable
-      assign reg_ena = out_pipe_ready[i] & out_pipe_valid_q[i];
+      assign reg_ena = 1'b0;
     end
     // Generate the pipeline registers within the stages, use enable-registers
-    // Valid: enabled by ready signal, synchronous clear with the flush signal
-    `FFLARNC(out_pipe_valid_q[i+1], out_pipe_valid_q[i], reg_ena, flush_i, 1'b0, clk_i, rst_ni)
     `FFL(out_pipe_result_q[i+1], out_pipe_result_q[i], reg_ena, '0)
-    `FFL(out_pipe_status_q[i+1], out_pipe_status_q[i], reg_ena, '0)
-    `FFL(out_pipe_tag_q[i+1],    out_pipe_tag_q[i],    reg_ena, TagType'('0))
-    `FFL(out_pipe_mask_q[i+1],   out_pipe_mask_q[i],   reg_ena, '0)
-    `FFL(out_pipe_aux_q[i+1],    out_pipe_aux_q[i],    reg_ena, AuxType'('0))
   end
-  // Output stage: Ready travels backwards from output side, driven by downstream circuitry
-  assign out_pipe_ready[NUM_OUT_REGS] = out_ready_i;
   // Output stage: assign module outputs
   assign result_o        = out_pipe_result_q[NUM_OUT_REGS];
-  assign status_o        = out_pipe_status_q[NUM_OUT_REGS];
-  assign extension_bit_o = 1'b1; // always NaN-Box result
-  assign tag_o           = out_pipe_tag_q[NUM_OUT_REGS];
-  assign mask_o          = out_pipe_mask_q[NUM_OUT_REGS];
-  assign aux_o           = out_pipe_aux_q[NUM_OUT_REGS];
-  assign out_valid_o     = out_pipe_valid_q[NUM_OUT_REGS];
-  assign busy_o          = (| {inp_pipe_valid_q, mid_pipe_valid_q, out_pipe_valid_q});
 endmodule
