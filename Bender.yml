@@ -16,7 +16,7 @@ dependencies:
   cv32e40x          : { git: "https://github.com/pulp-platform/cv32e40x.git"          , rev: "redmule-v1.0"                           }
   ibex              : { git: "https://github.com/pulp-platform/ibex.git"              , rev: pulpissimo-v6.1.2                        }
   hwpe-stream       : { git: "https://github.com/pulp-platform/hwpe-stream.git"       , version: 1.7                                  }
-  hwpe-ctrl         : { git: "https://github.com/pulp-platform/hwpe-ctrl.git"         , rev: 0e95510c0f4d43452d21b7723d766ae92e45c101 } # branch: yt/task-interfaces
+  hwpe-ctrl         : { git: "https://github.com/pulp-platform/hwpe-ctrl.git"         , rev: v2.1.0                                   }
   hci               : { git: "https://github.com/pulp-platform/hci.git"               , rev: v2.1.2                                   }
   fpnew             : { git: "https://github.com/pulp-platform/cvfpu.git"             , rev: "pulp-v0.1.3"                            }
   common_cells      : { git: "https://github.com/pulp-platform/common_cells.git"      , version: 1.21.0                               }
@@ -32,6 +32,7 @@ sources:
     - rtl/opope_fma.sv
     - rtl/opope_ce.sv
     - rtl/opope_fpnew.sv
+    - rtl/opope_seq_mult.sv
     - rtl/opope_engine.sv
     - rtl/opope_tiler.sv
     - rtl/opope_ctrl.sv

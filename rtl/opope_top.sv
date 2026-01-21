@@ -211,7 +211,7 @@ opope_engine     #(
 
 opope_ctrl        #(
   .N_CORES            ( N_CORES        ),
-  .IO_REGS            ( OPOPE_REGS   ),
+  .IO_REGS            ( OPOPE_REGS     ),
   .ID_WIDTH           ( ID_WIDTH       ),
   .N_CONTEXT          ( NumContext     ),
   .Height             ( Height         ),

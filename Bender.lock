@@ -60,8 +60,8 @@ packages:
     - hwpe-stream
     - l2_tcdm_hybrid_interco
   hwpe-ctrl:
-    revision: 0e95510c0f4d43452d21b7723d766ae92e45c101
-    version: null
+    revision: 2e7f41c55284b502e5deb019ceae904702d06494
+    version: 2.1.0
     source:
       Git: https://github.com/pulp-platform/hwpe-ctrl.git
     dependencies:

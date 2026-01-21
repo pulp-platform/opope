@@ -21,11 +21,6 @@ module opope_tiler
 
 logic clk_en;
 logic clk_int;
-logic shift;
-assign shift = (BITW==32 & reg_file_i.hwpe_params[MACFG][ 9: 7]==Float16) |
-               (BITW==16 & reg_file_i.hwpe_params[MACFG][ 9: 7]==Float8 );
-
-opope_config_t config_d, config_q;
 
 always_ff @(posedge clk_i, negedge rst_ni) begin: clock_gate_enabler
   if (~rst_ni) begin
@@ -45,151 +40,75 @@ tc_clk_gating i_tiler_clockg (
   .test_en_i  ( '0      ),
   .clk_o      ( clk_int )
 );
-  // typedef enum logic [2:0] { Float8=3'h0, Float16=3'h1, Float8Alt=3'h2, Float16Alt=3'h3, Float32=3'h4 } gemm_fmt_e;
 
-assign config_d.x_addr          = reg_file_i.hwpe_params[X_ADDR];
-assign config_d.w_addr          = reg_file_i.hwpe_params[W_ADDR];
-assign config_d.z_addr          = reg_file_i.hwpe_params[Z_ADDR];
-assign config_d.m_size          = reg_file_i.hwpe_params[MCFIG0][15: 0];
-assign config_d.k_size          = reg_file_i.hwpe_params[MCFIG0][31:16];
-assign config_d.n_size          = reg_file_i.hwpe_params[MCFIG1][15: 0] >> shift;
-// assign config_d.gemm_ops        = gemm_op_e' (reg_file_i.hwpe_params[MACFG][12:10]);
-assign config_d.gemm_ops        = gemm_op_e' (reg_file_i.hwpe_params[MACFG][12:10]);
-assign config_d.gemm_memory_fmt     = gemm_fmt_e'(reg_file_i.hwpe_params[MACFG][ 9: 7]);    // Memory Format
-assign config_d.gemm_computing_fmt  = gemm_fmt_e'(reg_file_i.hwpe_params[MACFG][ 19: 17]);  // Computing Format
+logic km_valid;
+logic nkm_valid;
+logic valid_d,valid_q;
+logic [31:0] nkm,nkm_d,nkm_q;
+logic [31:0] km,km_d,km_q;
+logic shift;
+logic sel_d,sel_q;
+logic mult_done, mult_start;
+logic[15:0] operand_a,operand_b;
+logic[31:0] mult_prod;
 
-logic k_m_valid_d, k_m_valid, k_m_ready, k_m_valid_q;
-logic [31:0] k_m;
+assign sel_d      = mult_done  ? ~sel_q : sel_q  ;
+assign mult_start = km_valid | start_cfg_i;
+assign operand_a  = sel_d ? reg_file_i.hwpe_params[MCFIG1][15: 0] : reg_file_i.hwpe_params[MCFIG0][15: 0];
+assign operand_b  = sel_d ? mult_prod[15:0]                       : reg_file_i.hwpe_params[MCFIG0][31:16];
+assign km_valid   = mult_done & ~sel_q;
+assign nkm_valid  = mult_done &  sel_q;
+assign nkm        = sel_q ? mult_prod :        '0;
+assign km         = sel_q ? '0        : mult_prod;
 
-
-hwpe_ctrl_seq_mult #(
-  .AW ( 16 ),
-  .BW ( 16 )
-) i_k_m (
-  .clk_i    ( clk_i                         ),
-  .rst_ni   ( rst_ni                        ),
-  .clear_i  ( clear_i | setback_i           ),
-  .start_i  ( start_cfg_i                   ),
-  .a_i      ( config_d.m_size          ),
-  .b_i      ( config_d.k_size          ),
-  .invert_i ( 1'b0                          ),
-  .valid_o  ( k_m_valid_d ),
-  .ready_o  ( k_m_ready ),
-  .prod_o   ( k_m         )
-);
-
-always_ff @(posedge clk_int or negedge rst_ni) begin
-  if(~rst_ni)
-    k_m_valid_q <= '0;
-  else if(clear_i | setback_i)
-    k_m_valid_q <= '0;
-  else
-    k_m_valid_q <= k_m_valid_d;
-end
-assign k_m_valid = ~k_m_valid_q & k_m_valid_d;
-
-
-logic n_k_m_valid, n_k_m_ready;
-logic [47:0] n_k_m;
-hwpe_ctrl_seq_mult #(
-  .AW ( 16 ),
-  .BW ( 32 )
+opope_seq_mult #(
+  .DW ( 16 )
 ) i_n_m_k (
-  .clk_i    ( clk_int                        ),
-  .rst_ni   ( rst_ni                        ),
-  .clear_i  ( clear_i | setback_i           ),
-  .start_i  ( k_m_valid                   ),
-  .a_i      ( config_d.n_size          ),
-  .b_i      ( k_m),
-  .invert_i ( 1'b0                          ),
-  .valid_o  ( n_k_m_valid ),
-  .ready_o  ( n_k_m_ready   ),
-  .prod_o   ( n_k_m         )
+  .clk_i    ( clk_i      ),
+  .rst_ni   ( rst_ni     ),
+  .start_i  ( mult_start ),
+  .a_i      ( operand_a  ),
+  .b_i      ( operand_b  ),
+  .done_o   ( mult_done  ),
+  .prod_o   ( mult_prod  )
 );
 
-assign config_d.stage_1_rnd_mode = config_d.gemm_ops == MATMUL ? RNE :
-                                   config_d.gemm_ops == GEMM   ? RNE :
-                                   config_d.gemm_ops == ADDMAX ? RNE :
-                                   config_d.gemm_ops == ADDMIN ? RNE :
-                                   config_d.gemm_ops == MULMAX ? RNE :
-                                   config_d.gemm_ops == MULMIN ? RNE :
-                                   config_d.gemm_ops == MAXMIN ? RTZ :
-                                                                 RNE ;
-assign config_d.stage_2_rnd_mode = config_d.gemm_ops == MATMUL ? RNE :
-                                   config_d.gemm_ops == GEMM   ? RNE :
-                                   config_d.gemm_ops == ADDMAX ? RTZ :
-                                   config_d.gemm_ops == ADDMIN ? RNE :
-                                   config_d.gemm_ops == MULMAX ? RTZ :
-                                   config_d.gemm_ops == MULMIN ? RNE :
-                                   config_d.gemm_ops == MAXMIN ? RNE :
-                                                                 RTZ;
-assign config_d.stage_1_op       = config_d.gemm_ops == MATMUL ? FPU_FMADD :
-                                   config_d.gemm_ops == GEMM   ? FPU_FMADD :
-                                   config_d.gemm_ops == ADDMAX ? FPU_ADD :
-                                   config_d.gemm_ops == ADDMIN ? FPU_ADD :
-                                   config_d.gemm_ops == MULMAX ? FPU_MUL :
-                                   config_d.gemm_ops == MULMIN ? FPU_MUL :
-                                   config_d.gemm_ops == MAXMIN ? FPU_MINMAX :
-                                                                 FPU_MINMAX;
-assign config_d.stage_2_op       = FPU_MINMAX;
-assign config_d.memory_format     = config_d.gemm_memory_fmt == Float16    ? FPU_FP16 :
-                                   config_d.gemm_memory_fmt == Float8     ? FPU_FP8 :
-                                   config_d.gemm_memory_fmt == Float16Alt ? FPU_FP16ALT :
-                                   config_d.gemm_memory_fmt == Float32    ? FPU_FP32 :
-                                                                           FPU_FP8ALT;
-assign config_d.computing_format = config_d.gemm_computing_fmt == Float16    ? FPU_FP16 :
-                                   config_d.gemm_computing_fmt == Float8     ? FPU_FP8 :
-                                   config_d.gemm_computing_fmt == Float16Alt ? FPU_FP16ALT :
-                                   config_d.gemm_computing_fmt == Float32    ? FPU_FP32 :
-                                                                            FPU_FP8ALT;
+assign km_d    = clear_i               ? '0   : km_valid  ? km   : km_q   ;
+assign nkm_d   = clear_i               ? '0   : nkm_valid ? nkm  : nkm_q  ;
+assign valid_d = (clear_i | setback_i) ? 1'b0 : nkm_valid ? 1'b1 : valid_q;
+assign valid_o = valid_q;
 
-assign config_d.gemm_selection   = 1'b1;
-
-assign config_d.k_m = k_m[31:0];
-assign config_d.n_k_m = n_k_m[31:0];
-
-// register configuration to avoid critical paths (maybe removable!)
+assign shift   = (BITW==32 & reg_file_i.hwpe_params[MACFG][ 19: 17]==Float16) |
+                 (BITW==16 & reg_file_i.hwpe_params[MACFG][ 19: 17]==Float8 );
+                 
 always_ff @(posedge clk_int or negedge rst_ni) begin
-  if(~rst_ni)
-    config_q <= '0;
-  else if (clear_i)
-    config_q <= '0;
-  else if(n_k_m_valid & n_k_m_ready)
-    config_q <= config_d;
+  if(~rst_ni) begin
+    nkm_q   <= '0;
+    km_q    <= '0;
+    valid_q <= '0;
+    sel_q   <= '0;
+  end else begin
+    nkm_q   <= nkm_d  ;
+    km_q    <= km_d   ;
+    valid_q <= valid_d;
+    sel_q   <= sel_d  ;
+  end
 end
 
-// generate output valid
-always_ff @(posedge clk_int or negedge rst_ni) begin
-  if(~rst_ni)
-    valid_o <= '0;
-  else if (clear_i | setback_i)
-    valid_o <= '0;
-  else if(n_k_m_ready)
-    valid_o <= n_k_m_valid;
-end
-
-// re-encode in older O-POPE regfile map
 assign reg_file_o.generic_params = '0;
 assign reg_file_o.ext_data = '0;
 assign reg_file_o.hwpe_params[REGFILE_N_MAX_IO_REGS-1:OPOPE_REGS] = '0;
-assign reg_file_o.hwpe_params[      X_ADDR]        = config_d.x_addr; // do not register (these are straight from regfile)
-assign reg_file_o.hwpe_params[      W_ADDR]        = config_d.w_addr; // do not register (these are straight from regfile)
-assign reg_file_o.hwpe_params[      Z_ADDR]        = config_d.z_addr; // do not register (these are straight from regfile)
-assign reg_file_o.hwpe_params[OP_SELECTION][31:29] = config_q.stage_1_rnd_mode;
-assign reg_file_o.hwpe_params[OP_SELECTION][28:26] = config_q.stage_2_rnd_mode;
-assign reg_file_o.hwpe_params[OP_SELECTION][25:21] = (config_q.memory_format != config_q.computing_format)? fpnew_pkg::operation_e'(fpnew_pkg::SDOTP) : FPU_FMADD;
-// assign reg_file_o.hwpe_params[OP_SELECTION][25:21] = config_q.stage_1_op;
-assign reg_file_o.hwpe_params[OP_SELECTION][20:16] = config_q.stage_2_op;
-assign reg_file_o.hwpe_params[OP_SELECTION][15:13] = config_q.memory_format;
-assign reg_file_o.hwpe_params[OP_SELECTION][12:10] = config_q.computing_format;
-assign reg_file_o.hwpe_params[OP_SELECTION][ 9: 1] = '0;
-assign reg_file_o.hwpe_params[OP_SELECTION][0]     = config_q.gemm_selection;
+assign reg_file_o.hwpe_params[      X_ADDR]        = reg_file_i.hwpe_params[X_ADDR];
+assign reg_file_o.hwpe_params[      W_ADDR]        = reg_file_i.hwpe_params[W_ADDR];
+assign reg_file_o.hwpe_params[      Z_ADDR]        = reg_file_i.hwpe_params[Z_ADDR];
+assign reg_file_o.hwpe_params[OP_SELECTION][31:1 ] = '0;
+assign reg_file_o.hwpe_params[OP_SELECTION][0]     = !shift;
 
-assign reg_file_o.hwpe_params[M_SIZE][15:0]        = config_q.m_size;
-assign reg_file_o.hwpe_params[N_SIZE][15:0]        = config_q.n_size;
-assign reg_file_o.hwpe_params[K_SIZE][15:0]        = config_q.k_size;
-assign reg_file_o.hwpe_params[N_K_M][31:0]         = config_q.n_k_m;
-assign reg_file_o.hwpe_params[K_M][31:0]           = config_q.k_m;
+assign reg_file_o.hwpe_params[M_SIZE][15:0]        = reg_file_i.hwpe_params[MCFIG0][15: 0];
+assign reg_file_o.hwpe_params[N_SIZE][15:0]        = reg_file_i.hwpe_params[MCFIG1][15: 0];
+assign reg_file_o.hwpe_params[K_SIZE][15:0]        = reg_file_i.hwpe_params[MCFIG0][31:16];
+assign reg_file_o.hwpe_params[N_K_M ][31:0]        = nkm_q;
+assign reg_file_o.hwpe_params[K_M   ][31:0]        = km_q;
 assign reg_file_o.hwpe_params[M_SIZE][31:16]       = 'b0;
 assign reg_file_o.hwpe_params[N_SIZE][31:16]       = 'b0;
 assign reg_file_o.hwpe_params[K_SIZE][31:16]       = 'b0;

@@ -62,7 +62,7 @@ module opope_ctrl
   
   logic clear, latch_clear;
   logic tiler_setback, tiler_valid;
-  logic slave_start;
+  logic slave_start_d, slave_start_q;
   logic change_state;
   logic last_iteration_d,last_iteration_q;
   
@@ -148,7 +148,7 @@ module opope_ctrl
     .REGFILE_SCM    ( 0            ),
     .N_CORES        ( N_CORES      ),
     .N_CONTEXT      ( N_CONTEXT    ),
-    .N_IO_REGS      ( OPOPE_REGS ),
+    .N_IO_REGS      ( OPOPE_REGS   ),
     .N_GENERIC_REGS ( 6            ),
     .ID_WIDTH       ( ID_WIDTH     )
   ) i_slave         (
@@ -173,63 +173,11 @@ module opope_ctrl
   );
 
   /*---------------------------------------------------------------------------------------------*/
-  /*                                       Register island                                       */
-  /*---------------------------------------------------------------------------------------------*/
-
-  // State register
-  always_ff @(posedge clk_i or negedge rst_ni) begin : state_register
-    if(~rst_ni) begin
-       current <= OPOPE_LATCH_RST;
-    end else begin
-      current <= next;
-    end
-  end
-
-  always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (~rst_ni) begin
-      slave_start <= 1'b0;
-    end else begin
-      if (clear || tiler_setback)
-        slave_start <= 1'b0;
-      else if (flgs_slave.start)
-        slave_start <= 1'b1;
-    end
-  end
-
-  /*---------------------------------------------------------------------------------------------*/
-  /*                                   Register file assignment                                  */
-  /*---------------------------------------------------------------------------------------------*/
-
-  assign cntrl_engine_o.fma_is_boxed = 3'b111;
-  assign cntrl_engine_o.noncomp_is_boxed = 2'b11;
-  assign cntrl_engine_o.op_mod = 1'b0;
-  assign cntrl_engine_o.stage1_rnd = fpnew_pkg::roundmode_e'(reg_file_q.hwpe_params[OP_SELECTION][31:29]);
-  assign cntrl_engine_o.stage2_rnd = fpnew_pkg::roundmode_e'(reg_file_q.hwpe_params[OP_SELECTION][28:26]);
-  assign cntrl_engine_o.op1 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][25:21]);
-  assign cntrl_engine_o.op2 = fpnew_pkg::operation_e'(reg_file_q.hwpe_params[OP_SELECTION][20:16]);
-  assign cntrl_engine_o.memory_format = opope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
-  assign cntrl_engine_o.inner_loop_count = (reg_file_q.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
-  assign cntrl_engine_o.computing_format = opope_pkg::fpu_fmt_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
-  assign cntrl_engine_o.mode =  cntrl_engine_mode_e'(IDLE);
-  assign cntrl_engine_o.iteration_change    = 1'b0;
-  assign cntrl_engine_o.y_write_reg_index   = y_write_reg_index_q;
-  assign cntrl_engine_o.y_write_row_index   = y_write_row_index_q;
-  assign cntrl_engine_o.z_read_reg_index    = z_read_reg_index_q ;
-  assign cntrl_engine_o.z_read_row_index    = z_read_row_index_q ;
-  assign cntrl_engine_o.reg_write_to_engine = reg_write_to_engine_q;
-  assign cntrl_engine_o.y_bias_selector     = y_bias_selector    ;
-  assign cntrl_engine_o.acc_input_selector  = acc_input_selector ;
-  assign cntrl_engine_o.external_loading    = external_loading   ;
-  assign cntrl_engine_o.in_valid            = in_valid_i  ;
-  assign cntrl_engine_o.y_in_valid          = y_in_valid_i;
-  assign cntrl_engine_o.in_ready            = in_ready_o;
-  assign cntrl_engine_o.reg_enable          = ce_enable;
-  assign cntrl_engine_o.shift_acc           = shift_acc;
-  
-  /*---------------------------------------------------------------------------------------------*/
   /*                                        Controller FSM                                       */
   /*---------------------------------------------------------------------------------------------*/
   
+  assign slave_start_d = (clear || tiler_setback) ? 1'b0 : flgs_slave.start ? 1'b1 : slave_start_q;
+
   always_comb begin : controller_fsm
     next = current;
 
@@ -265,7 +213,7 @@ module opope_ctrl
         busy_o      = 1'b0;
       end
       OPOPE_IDLE     : begin
-        change_state                   = slave_start & tiler_valid;
+        change_state                   = slave_start_q & tiler_valid;
         tiler_setback                  = change_state;
         cntrl_scheduler.start_load_w = change_state;
         busy_o      = 1'b0;
@@ -292,6 +240,10 @@ module opope_ctrl
       end
     endcase
   end
+
+  assign evt_o          = flgs_slave.evt[N_CORES-1:0];
+  assign clear_o        = clear || latch_clear;
+  assign cfg_complete_o = tiler_valid;
 
   /*---------------------------------------------------------------------------------------------*/
   /*                                         Streamer FSM                                        */
@@ -374,6 +326,9 @@ module opope_ctrl
   end
 
   always_comb begin : priority_values
+
+    cntrl_streamer_o.custom_priority_force = 1'b1;
+
     case (priority_counter_q)
       2'b00  : priority_level = PRIORITY_X ;
       2'b01  : priority_level = PRIORITY_W ;
@@ -399,31 +354,11 @@ module opope_ctrl
       end
     endcase
   end
-  
-  always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (~rst_ni) begin
-      y_counter_q        <= '0;
-      priority_counter_q <= '0;
-      streamer_current   <= STREAMER_Y;
-      extra_q            <= '0;
-      done_q             <= '0;
-    end else begin
-      y_counter_q        <= y_counter_d       ;
-      priority_counter_q <= priority_counter_d;
-      streamer_current   <= streamer_next     ;
-      extra_q            <= extra_d           ;
-      done_q             <= done_d            ;
-    end
-  end  
-
-  /*---------------------------------------------------------------------------------------------*/
-  /*                                       Memory Scheduler                                      */
-  /*---------------------------------------------------------------------------------------------*/
 
   assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] * X_REGBUFFER_DEPTH  / (Width*W_REGBUFFER_DEPTH * Height*X_REGBUFFER_DEPTH) / 2;
   assign total_len_y_z = W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH * Height * reg_file_q.hwpe_params[K_M] / (Width*W_REGBUFFER_DEPTH*Height*X_REGBUFFER_DEPTH) / 2;
 
-  always_comb begin : address_gen_signals
+  always_comb begin : cntrl_streamer_signals
     // Here we initialize the streamer source signals
     // for the X stream source
     // X: M*N | W: N*K | Y: M*K | Z: M*K -> X is transposed
@@ -474,24 +409,19 @@ module opope_ctrl
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_stride       = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d3_stride       = 'b0;
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.dim_enable_1h   = 3'b111;
-  end
 
-  always_comb begin : req_start_assignment
+    // Req start assignements
     cntrl_streamer_o.x_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_x  && flgs_streamer_i.x_stream_source_flags.ready_start;
     cntrl_streamer_o.w_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_w  && flgs_streamer_i.w_stream_source_flags.ready_start;
     cntrl_streamer_o.y_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_y  && flgs_streamer_i.y_stream_source_flags.ready_start;
     cntrl_streamer_o.z_stream_sink_ctrl.req_start      = cntrl_scheduler.start_store_z && flgs_streamer_i.z_stream_sink_flags.ready_start  ;
   end
 
-  // NOTE: these are used for the casting, don't care for now
-  assign cntrl_streamer_o.input_cast_src_fmt  = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
-  assign cntrl_streamer_o.input_cast_dst_fmt  = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
-  assign cntrl_streamer_o.output_cast_src_fmt = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][12:10]);
-  assign cntrl_streamer_o.output_cast_dst_fmt = fpnew_pkg::fp_format_e'(reg_file_q.hwpe_params[OP_SELECTION][15:13]);
-
   /*---------------------------------------------------------------------------------------------*/
   /*                                          Engine FSM                                         */
   /*---------------------------------------------------------------------------------------------*/
+
+  assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
 
   always_comb begin : acc_fsm
     acc_state_next = acc_state_current;
@@ -649,9 +579,37 @@ module opope_ctrl
     endcase
   end
 
+  always_comb begin : cntrl_engine_signals
+    cntrl_engine_o.same_fmt            = reg_file_q.hwpe_params[OP_SELECTION][0];
+    cntrl_engine_o.inner_loop_count    = (reg_file_q.hwpe_params[N_SIZE][15:0]) * W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH;
+    cntrl_engine_o.y_write_reg_index   = y_write_reg_index_q;
+    cntrl_engine_o.y_write_row_index   = y_write_row_index_q;
+    cntrl_engine_o.z_read_reg_index    = z_read_reg_index_q ;
+    cntrl_engine_o.z_read_row_index    = z_read_row_index_q ;
+    cntrl_engine_o.reg_write_to_engine = reg_write_to_engine_q;
+    cntrl_engine_o.y_bias_selector     = y_bias_selector    ;
+    cntrl_engine_o.acc_input_selector  = acc_input_selector ;
+    cntrl_engine_o.external_loading    = external_loading   ;
+    cntrl_engine_o.in_valid            = in_valid_i  ;
+    cntrl_engine_o.y_in_valid          = y_in_valid_i;
+    cntrl_engine_o.in_ready            = in_ready_o;
+    cntrl_engine_o.reg_enable          = ce_enable;
+    cntrl_engine_o.shift_acc           = shift_acc;
+  end
+
+  /*---------------------------------------------------------------------------------------------*/
+  /*                                       Sequential Logic                                      */
+  /*---------------------------------------------------------------------------------------------*/
   always_ff @(posedge clk_i or negedge rst_ni) begin : seq_block
     if (~rst_ni) begin
       acc_state_current     <= ACC_IDLE;
+      current               <= OPOPE_LATCH_RST;
+      streamer_current      <= STREAMER_Y;
+      slave_start_q         <= '0;
+      y_counter_q           <= '0;
+      priority_counter_q    <= '0;
+      extra_q               <= '0;
+      done_q                <= '0;
       y_write_reg_index_q   <= '0;
       y_write_row_index_q   <= '0;
       inner_loop_counter_q  <= '0;
@@ -663,6 +621,13 @@ module opope_ctrl
       last_iteration_q      <= '0;
     end else begin
       acc_state_current     <= acc_state_next       ;
+      current               <= next                 ;
+      streamer_current      <= streamer_next        ;
+      slave_start_q         <= slave_start_d        ;
+      y_counter_q           <= y_counter_d          ;
+      priority_counter_q    <= priority_counter_d   ;
+      extra_q               <= extra_d              ;
+      done_q                <= done_d               ;
       y_write_reg_index_q   <= y_write_reg_index_d  ;
       y_write_row_index_q   <= y_write_row_index_d  ;
       inner_loop_counter_q  <= inner_loop_counter_d ;
@@ -675,15 +640,4 @@ module opope_ctrl
     end
   end
 
-
-  /*---------------------------------------------------------------------------------------------*/
-  /*                            Other combinational assigmnets                                   */
-  /*---------------------------------------------------------------------------------------------*/
-  assign evt_o          = flgs_slave.evt[N_CORES-1:0];
-  assign clear_o        = clear || latch_clear;
-  assign cfg_complete_o = tiler_valid;
-
-  assign cntrl_streamer_o.custom_priority_force = 1'b1;
-
-  assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
 endmodule : opope_ctrl
