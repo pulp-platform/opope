@@ -522,9 +522,12 @@ module opope_tb
   end
 
   initial begin
-    int ENABLE_ENGINE_OUTPUT  = 0;
-    int ENABLE_ENGINE_Y_INPUT = 0;
-    int cnt = 0;
+    int ENABLE_ENGINE_OUTPUT ;
+    int ENABLE_ENGINE_Y_INPUT;
+    int cnt;
+    ENABLE_ENGINE_OUTPUT = 0;
+    ENABLE_ENGINE_Y_INPUT = 0;
+    cnt = 0;
     @(posedge clk_i);
     // -----------------------------------------------------------------------
     forever begin 

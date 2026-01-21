@@ -44,10 +44,7 @@ static inline int hwpe_acquire_job() { return HWPE_READ(OPOPE_ACQUIRE); }
 
 static inline unsigned int hwpe_get_status() { return HWPE_READ(OPOPE_STATUS); }
 
-static inline void hwpe_soft_clear() {
-  volatile int i;
-  HWPE_WRITE(0, OPOPE_SOFT_CLEAR);
-}
+static inline void hwpe_soft_clear() { HWPE_WRITE(0, OPOPE_SOFT_CLEAR); }
 
 static inline void hwpe_cg_enable() { return; }
 
@@ -66,7 +63,7 @@ void opope_cfg(unsigned int x, unsigned int w, unsigned int z, uint16_t m_size, 
   // [MACFG][ 9: 7]):   Memory  format float32
   // [MACFG][ 19: 17]): Compute format float16 or float32
 
-  tfp_printf("comp_fmt: %d, gemm_op: %d, mem_fmt: %d\n", comp_fmt, gemm_op, mem_fmt);
+  // tfp_printf("comp_fmt: %d, gemm_op: %d, mem_fmt: %d\n", comp_fmt, gemm_op, mem_fmt);
   arith_reg =  (comp_fmt <<17) | (gemm_op << 10) | (mem_fmt << 7);
 
   opope_x_add_set((unsigned int)x);

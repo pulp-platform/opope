@@ -131,7 +131,7 @@ SUMMARY_LINES=(" Engine    Target     M   N   K   FIFO   MUX   FPU   Status     
 SUMMARY_LINES+=("──────────────────────────────────────────────────────────────────────────────────")
 # ─── Simulations ────────────────────────────────────────────────────────────────
 sed -i '70s/.*/  -do "run 2 ms; quit -f;"/' "$MAKE_PATH/target/sim/vsim/vsim.mk"
-sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
+sed -i '528s/.*/    ENABLE_ENGINE_OUTPUT = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
 sed -i '21s/.*/ localparam int unsigned  CUSTOM_FPU  = 1                            ,/' "$MAKE_PATH/rtl/opope_engine.sv"
 sed -i '22s/.*/ localparam int unsigned  MUX_SH_n    = 1/' "$MAKE_PATH/rtl/opope_engine.sv"
 for FIFO in "${FIFOS[@]}"; do
@@ -161,7 +161,7 @@ echo -e "Error rate: $(printf "%.2f%%" "$(echo "100 * $fail_count / $total_count
 
 ### DEFAULT CONFIGURATION
 sed -i '70s|.*|  -do "run -a;"|' "$MAKE_PATH/target/sim/vsim/vsim.mk"
-sed -i '527s/.*/    int ENABLE_ENGINE_OUTPUT  = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
+sed -i '528s/.*/    ENABLE_ENGINE_OUTPUT = 0;/' "$MAKE_PATH/target/sim/src/opope_tb.sv"
 sed -i '14s/.*/  parameter int unsigned            ARRAY_HEIGHT = 8;/' "$MAKE_PATH/rtl/opope_pkg.sv"
 sed -i '15s/.*/  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;/' "$MAKE_PATH/rtl/opope_pkg.sv"
 sed -i '41s/.*/  localparam int unsigned X_FIFO_DEPTH = 0;/' "$MAKE_PATH/rtl/opope_buffers.sv"
