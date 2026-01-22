@@ -54,8 +54,10 @@ logic[31:0] mult_prod;
 
 assign sel_d      = mult_done  ? ~sel_q : sel_q  ;
 assign mult_start = km_valid | start_cfg_i;
-assign operand_a  = sel_d ? reg_file_i.hwpe_params[MCFIG1][15: 0] : reg_file_i.hwpe_params[MCFIG0][15: 0];
-assign operand_b  = sel_d ? mult_prod[15:0]                       : reg_file_i.hwpe_params[MCFIG0][31:16];
+assign operand_a  = sel_d ? (reg_file_i.hwpe_params[MCFIG1][15: 0] +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) 
+                          : (reg_file_i.hwpe_params[MCFIG0][15: 0] +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
+assign operand_b  = sel_d ? mult_prod[15:0]                        
+                          : (reg_file_i.hwpe_params[MCFIG0][31:16] +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
 assign km_valid   = mult_done & ~sel_q;
 assign nkm_valid  = mult_done &  sel_q;
 assign nkm        = sel_q ? mult_prod :        '0;

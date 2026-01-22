@@ -34,6 +34,7 @@ module opope_buffers
 
   output logic                         z_ready_o,
   input  logic                         mask_z_i ,
+  input  logic [DATA_WIDTH/8    -1:0]  z_be_i   , 
   input  logic                         z_valid_i,
   input  logic [DATA_WIDTH      -1:0]  z_data_i  
 );
@@ -123,10 +124,10 @@ module opope_buffers
   assign y_data_o     = y_fifo.data      ;
 
   // Z stream
-  assign z_fifo.data  = z_data_i         ;
-  assign z_fifo.valid = z_valid_i        ;
-  assign z_fifo.strb  = {{DATAW/8{1'b1}}};
-  assign z_ready_o    = z_fifo.ready     ;
+  assign z_fifo.data  = z_data_i    ;
+  assign z_fifo.valid = z_valid_i   ;
+  assign z_fifo.strb  = z_be_i      ;
+  assign z_ready_o    = z_fifo.ready;
 
   assign z_stream_o.strb  = z_fifo_out.strb             ;
   assign z_stream_o.valid = z_fifo_out.valid &~ mask_z_i;

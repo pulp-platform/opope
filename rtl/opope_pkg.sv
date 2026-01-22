@@ -11,8 +11,8 @@ import hwpe_stream_package::*;
 
 package opope_pkg;
 
-  parameter int unsigned            ARRAY_HEIGHT = 8;
-  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;
+  parameter int unsigned            ARRAY_HEIGHT = 4;
+  parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP32;
   parameter int unsigned            BITW         = fpnew_pkg::fp_width(FPFORMAT);
   parameter int unsigned            ARRAY_WIDTH  = ARRAY_HEIGHT;
   parameter int unsigned            DATA_W       = 2*BITW*ARRAY_HEIGHT + 32;                                  
