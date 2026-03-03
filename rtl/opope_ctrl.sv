@@ -458,7 +458,8 @@ module opope_ctrl
   logic [14-$clog2(Height):0] max_loop_tc ;
   logic [DATAW/8-1:0]         z_be_mask;
   assign max_loop_cnt = ((reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH)) -1;
-  assign z_be_mask    = (1 << (reg_file_q.hwpe_params[K_SIZE][$clog2(2*ARRAY_WIDTH)-1:0]*BITW/8)) - 1;
+  assign z_be_mask    = (reg_file_q.hwpe_params[K_SIZE][$clog2(2*ARRAY_WIDTH)-1:0]*BITW/8 == '0) ? '1:
+                        (1 << (reg_file_q.hwpe_params[K_SIZE][$clog2(2*ARRAY_WIDTH)-1:0]*BITW/8)) - 1;
   assign max_loop_tc  = (intm_loop_cnt_q == max_loop_cnt);
 
   always_comb begin : acc_values
