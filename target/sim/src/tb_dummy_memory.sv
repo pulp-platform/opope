@@ -12,7 +12,6 @@ module tb_dummy_memory
   parameter MP          = 1,
   parameter MEMORY_SIZE = 1024,
   parameter BASE_ADDR   = 0,
-  parameter PROB_STALL  = 0.0,
   parameter time TCP = 1.0,   // clock period, 1GHz clock
   parameter time TA  = 0.2,   // application time
   parameter time TT  = 0.8    // test time
@@ -20,6 +19,7 @@ module tb_dummy_memory
   input  logic                clk_i,
   input  logic                rst_ni,
   input  logic                clk_delayed_i,
+  input  real                 PROB_STALL ,
   // input  logic                randomize_i,
   input  logic                enable_i,
   input  logic                stallable_i,
