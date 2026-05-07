@@ -155,7 +155,7 @@ sim: hw-clean sw-clean synth-ips hw-script hw-build sw-build hw-run
 sim-all:
 	mkdir -p logs
 	rm -rf logs/*
-	source scripts/run_all.sh &> logs/sim_all.log
+	source scripts/run_all.sh $(target) &> logs/sim_all.log
 
 # Install tools
 CXX ?= g++

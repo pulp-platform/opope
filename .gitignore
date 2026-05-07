@@ -11,7 +11,8 @@ sw/inc
 vendor
 sw/build
 *.wlf
-target/sim/verilator
+target/sim/verilator/*
+!target/sim/vsim/verilator.mk
 golden-model/*/scripts/__pycache__/*
 scripts/synth_compile.tcl
 target/sim/vsim/*

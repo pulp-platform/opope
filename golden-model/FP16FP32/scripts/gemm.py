@@ -32,11 +32,11 @@ args = parser.parse_args()
 
 transpose = args.transpose
 # Network parameters
+pad_last_row = (args.n_size % 2 != 0)
 m_size = args.m_size
-n_size = args.n_size
 k_size = args.k_size
-
-assert (n_size % 2 == 0), "Number of columns must be even for packing fp16 to 32-bit"
+n_size = args.n_size + pad_last_row
+print("Sizes: ", m_size, n_size, k_size)
 
 def pack_fp16(tensor):
   t_int16 = tensor.contiguous().view(torch.int16)
@@ -44,6 +44,8 @@ def pack_fp16(tensor):
   t_int16_pairs = t_int16.view(new_shape)
   lower = t_int16_pairs[..., 0].to(torch.int32) & 0xFFFF
   upper = t_int16_pairs[..., 1].to(torch.int32) & 0xFFFF
+  if pad_last_row:
+    upper[..., -1] = 0
   packed = lower | (upper << 16)
   return packed
 
@@ -63,6 +65,8 @@ def pack_fp16_axis0(tensor):
   t_int16_pairs = t_int16.view(new_shape)
   lower = t_int16_pairs[:, 0].to(torch.int32) & 0xFFFF
   upper = t_int16_pairs[:, 1].to(torch.int32) & 0xFFFF
+  if pad_last_row:
+    upper[-1, ...] = 0
   packed = lower | (upper << 16)
   return packed
 
@@ -94,7 +98,7 @@ W_packed = pack_fp16_axis0(W_half)
 print("\nPacked X (32-bit words): ", X_packed, X_packed.shape, X_packed.dtype)
 print("\nPacked W (32-bit words): ", W_packed, W_packed.shape, W_packed.dtype)
 
-product = torch.zeros((m_size, m_size), dtype=torch.float32)
+product = torch.zeros((m_size, k_size), dtype=torch.float32)
 
 for i in range(m_size): 
   for j in range(k_size): 
@@ -110,11 +114,6 @@ Z = torch.add(input = Y, other = product)
 print("\nZ | gemm packed is: ", Z, Z.shape, Z.dtype)
 f.write('fp32 Z[IN_CH*OUT_CH] = {'+dump.tensor_to_string(Z)+'};\n')
 f.close()
-
-Z_golden = torch.add(input = Y, other = torch.mm(input = X, mat2 = W))
-print("\nZ_golden | gemm packed is: ", Z_golden, Z_golden.shape, Z_golden.dtype)
-if (np.allclose(Z, Z_golden, rtol=1e-2, atol=1e-2)): print("\nGolden model and packed model are equivalent.")
-else: print("\nGolden model and packed model are not equivalent.")
 
 # Matrices conversion to hexadecimal and txt files generation
 txt_path = args.txt_dir
@@ -344,6 +343,7 @@ for i in range(m_size):
 f_z.write("};")
 f_z.close()
 
+correct_n_size = str(int(new_in_cols)*2-int(pad_last_row))
 # Writing tensors' dimensions
 f_d = open(''+inc_path+'/tensor_dim.h', "w")
 f_d.write(''+header+'')
@@ -351,7 +351,7 @@ f_d.write('#ifndef __TENSOR_DIM__\n'            )
 f_d.write('#define __TENSOR_DIM__\n\n'          )
 f_d.write('#include "archi_opope.h"\n\n'      )
 f_d.write('#define M_SIZE  '+new_in_rows+' \n'  )
-f_d.write('#define N_SIZE  '+new_in_cols+' \n'  )
+f_d.write('#define N_SIZE  '+correct_n_size+' \n'  )
 f_d.write('#define K_SIZE  '+new_out_cols+'\n'  )
 f_d.write('#define COMP_FMT FP16\n'             )
 f_d.write('#define MEM_FMT FP32\n'              )

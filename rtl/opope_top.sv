@@ -71,7 +71,7 @@ logic ce_clk_en;
 
 logic                           in_ready;
 logic y_valid;
-
+logic [DATAW/8    -1:0] z_be;
 logic in_valid;
 logic [DATAW/2 - 1: 0] x_data, w_data;
 logic [DATAW   - 1: 0] y_data, z_data;
@@ -177,6 +177,7 @@ opope_buffers #(
   .y_valid_o   ( y_valid       ),
   .y_data_o    ( y_data        ),
 
+  .z_be_i      ( z_be          ),
   .z_ready_o   ( z_ready       ),
   .mask_z_i    ( mask_z        ),
   .z_valid_i   ( z_valid       ),
@@ -235,6 +236,7 @@ opope_ctrl        #(
   .y_ready_o          ( y_ready        ),
   .out_valid_o        ( z_valid        ),
   .out_ready_i        ( z_ready        ),
+  .z_be_o             ( z_be           ),
   
   // Engine
   .cntrl_engine_o     ( cntrl_engine   ),

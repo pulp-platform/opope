@@ -24,7 +24,7 @@ module opope_tb
   localparam int unsigned DW = opope_pkg::DATA_W;
 
   // parameters
-  localparam int unsigned PROB_STALL = 0;
+  real PROB_STALL;
   localparam int unsigned NC = 1;
   localparam int unsigned ID = 10;
 
@@ -245,7 +245,6 @@ module opope_tb
     .MP             ( MP + 1        ),
     .MEMORY_SIZE    ( 512 * 1024 ),
     .BASE_ADDR      ( 32'h1c010000  ),
-    .PROB_STALL     ( PROB_STALL    ),
     .TCP            ( TCP           ),
     .TA             ( TA            ),
     .TT             ( TT            )
@@ -253,6 +252,7 @@ module opope_tb
     .clk_i          ( clk_i         ),
     .rst_ni         ( rst_ni        ),
     .clk_delayed_i  ( '0            ),
+    .PROB_STALL     ( PROB_STALL    ),
     // .randomize_i    ( 1'b0          ),
     .enable_i       ( 1'b1          ),
     .stallable_i    ( 1'b1          ),
@@ -263,7 +263,6 @@ module opope_tb
     .MP             ( 1           ),
     .MEMORY_SIZE    ( MEMORY_SIZE ),
     .BASE_ADDR      ( BASE_ADDR   ),
-    .PROB_STALL     ( 0           ),
     .TCP            ( TCP         ),
     .TA             ( TA          ),
     .TT             ( TT          )
@@ -271,6 +270,7 @@ module opope_tb
     .clk_i          ( clk_i       ),
     .rst_ni         ( rst_ni      ),
     .clk_delayed_i  ( '0          ),
+    .PROB_STALL     ( 0.0         ),
     // .randomize_i    ( 1'b0        ),
     .enable_i       ( 1'b1        ),
     .stallable_i    ( 1'b0        ),
@@ -281,7 +281,6 @@ module opope_tb
     .MP                  ( 1                 ),
     .MEMORY_SIZE         ( STACK_MEMORY_SIZE ),
     .BASE_ADDR           ( BASE_ADDR         ),
-    .PROB_STALL          ( 0                 ),
     .TCP                 ( TCP               ),
     .TA                  ( TA                ),
     .TT                  ( TT                )
@@ -289,6 +288,7 @@ module opope_tb
     .clk_i               ( clk_i             ),
     .rst_ni              ( rst_ni            ),
     .clk_delayed_i       ( '0                ),
+    .PROB_STALL          ( 0.0               ),
     // .randomize_i         ( 1'b0              ),
     .enable_i            ( 1'b1              ),
     .stallable_i         ( 1'b0              ),
@@ -469,9 +469,9 @@ module opope_tb
 `endif
 
   initial begin
-
-    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) $fatal("Can't find  sw/build/stim_instr.txt");
-    if (!$value$plusargs("STIM_DATA=%s", stim_data)) $fatal("Can't find  sw/build/stim_data.txt");
+    if (!$value$plusargs("PROB_STALL=%f", PROB_STALL)) PROB_STALL = 0.0;
+    if (!$value$plusargs("STIM_INSTR=%s", stim_instr)) stim_instr = "../../../sw/build/stim_instr.txt";
+    if (!$value$plusargs("STIM_DATA=%s", stim_data)) stim_data = "../../../sw/build/stim_data.txt";
 
     test_mode = 1'b0;
     core_boot_addr = 32'h1C000084;
@@ -537,24 +537,25 @@ module opope_tb
           cnt =  cnt+1 ;
           $display("[Engine] - Engine Output=0x%04x",i_opope_wrap.i_opope_top.i_engine.z_output_o[0]);
           // $display("[Engine] - Engine Output=0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, ", 
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[0],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[1],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[2],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[3],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[4],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[5],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[6],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[7],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[8],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[9],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[10],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[11],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[12],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[13],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[14],
-          //         i_opope_wrap.i_opope_top.i_engine.z_output_o[15],
-          //         );
-          if(cnt%16 == 0) $display("----------------------------------");
+          $display("[Engine] - Engine Output=0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x", 
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[0],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[1],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[2],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[3],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[4],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[5],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[6],
+                  i_opope_wrap.i_opope_top.i_engine.z_output_o[7],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[8],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[9],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[10],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[11],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[12],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[13],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[14],
+                  // i_opope_wrap.i_opope_top.i_engine.z_output_o[15],
+                  );
+          // if(cnt%16 == 0) $display("----------------------------------");
         end
       end
       @(posedge clk_i);

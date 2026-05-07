@@ -10,7 +10,7 @@ timeunit 1ps; timeprecision 1ps;
 module opope_tb_wrap;
 import opope_pkg::*;
 
-  localparam TCP = 2.0ns; // clock period, 1 GHz clock
+  localparam TCP = 1.0ns; // clock period, 1 GHz clock
   localparam TA  = 0.4ns; // application time
   localparam TT  = 1.6ns; // test time
 
@@ -53,7 +53,8 @@ import opope_pkg::*;
     #(100*TCP);
     fetch_enable = 1'b1;
 
-    while(1) cycle();
+    for (int i = 0; i < 2000000; i++) cycle();
+    $finish;
 
   end
 

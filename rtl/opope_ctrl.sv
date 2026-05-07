@@ -38,6 +38,7 @@ module opope_ctrl
   // Buffers
   input  logic       in_valid_i         ,
   input  logic       y_in_valid_i       ,
+  output logic [DATAW/8-1:0]  z_be_o    ,
   input  logic       out_ready_i        ,
   output logic       y_ready_o,  
   output logic       out_valid_o        ,
@@ -139,6 +140,11 @@ module opope_ctrl
   logic ce_enable;
   logic shift_acc;
 
+  logic [14-$clog2(Height):0] intm_loop_cnt_d,intm_loop_cnt_q;
+  logic [14-$clog2(Height):0] max_loop_cnt;
+  logic [14-$clog2(Height):0] max_loop_tc ;
+  logic [DATAW/8-1:0]         z_be_mask;
+  logic compute_d, compute_q;
 
   /*---------------------------------------------------------------------------------------------*/
   /*                                   Control slave interface                                   */
@@ -302,7 +308,7 @@ module opope_ctrl
       STREAMER_XWM: begin
         extra_d               = extra_q + y_granted;
         priority_counter_d    = priority_counter_q + grant;
-        mask_y_o              = priority_counter_q[1];
+        mask_y_o              = priority_counter_q[1] &~ compute_q;
         streamer_change_state = out_valid_o;
         mask_z_o              = ~(streamer_change_state & done_q);
       end
@@ -355,8 +361,8 @@ module opope_ctrl
     endcase
   end
 
-  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] * X_REGBUFFER_DEPTH  / (Width*W_REGBUFFER_DEPTH * Height*X_REGBUFFER_DEPTH) / 2;
-  assign total_len_y_z = W_REGBUFFER_DEPTH * X_REGBUFFER_DEPTH * Height * reg_file_q.hwpe_params[K_M] / (Width*W_REGBUFFER_DEPTH*Height*X_REGBUFFER_DEPTH) / 2;
+  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] / (Width*W_REGBUFFER_DEPTH * Height) / 2;
+  assign total_len_y_z = reg_file_q.hwpe_params[K_M] / (Width* 2);
 
   always_comb begin : cntrl_streamer_signals
     // Here we initialize the streamer source signals
@@ -366,9 +372,9 @@ module opope_ctrl
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[M_SIZE] * (BITW/8);
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_len        = (reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_stride     = 'b0;
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_stride     = Height * X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
@@ -379,9 +385,9 @@ module opope_ctrl
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
-    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_len        = (reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d1_stride     = Width * W_REGBUFFER_DEPTH * (BITW/8);
-    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_stride     = 'b0;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
@@ -391,9 +397,9 @@ module opope_ctrl
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_y_z;
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_len        = 2 * Height;
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_len        = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_len        = (reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d1_stride     = (BITW/8) * Height * W_REGBUFFER_DEPTH;
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_len        = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_stride     = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
@@ -403,9 +409,9 @@ module opope_ctrl
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.tot_len         = total_len_y_z;
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_len          = 2 * Height;
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d0_stride       = reg_file_q.hwpe_params[K_SIZE] * (BITW/8);
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_len          = reg_file_q.hwpe_params[K_SIZE] / (Width*W_REGBUFFER_DEPTH);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_len          = (reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d1_stride       = (BITW/8) * Height * W_REGBUFFER_DEPTH;
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_len          = reg_file_q.hwpe_params[M_SIZE] / (Height*X_REGBUFFER_DEPTH);
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_len          = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_stride       = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d3_stride       = 'b0;
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.dim_enable_1h   = 3'b111;
@@ -452,6 +458,11 @@ module opope_ctrl
     endcase
   end
 
+  assign max_loop_cnt = ((reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH)) -1;
+  assign z_be_mask    = (reg_file_q.hwpe_params[K_SIZE][$clog2(2*ARRAY_WIDTH)-1:0]*BITW/8 == '0) ? '1:
+                        (1 << (reg_file_q.hwpe_params[K_SIZE][$clog2(2*ARRAY_WIDTH)-1:0]*BITW/8)) - 1;
+  assign max_loop_tc  = (intm_loop_cnt_q == max_loop_cnt);
+
   always_comb begin : acc_values
     y_write_reg_index_d   = y_write_reg_index_q  ;
     y_write_row_index_d   = y_write_row_index_q  ;
@@ -461,6 +472,8 @@ module opope_ctrl
     z_read_row_index_d    = z_read_row_index_q   ;
     prefetched_d          = prefetched_q         ;
     acc_done_d            = acc_done_q           ;
+    intm_loop_cnt_d       = intm_loop_cnt_q      ;
+    compute_d             = compute_q            ;
     acc_change_state      = 1'b0;
     y_bias_selector       = 1'b0;
     acc_input_selector    = 1'b0;
@@ -469,13 +482,14 @@ module opope_ctrl
     out_valid_o           = 1'b0;
     y_ready_o             = 1'b0;
     shift_acc             = 1'b0;
-    ce_enable             = 1'b0;                
+    ce_enable             = 1'b0;    
+    z_be_o                = '1  ;
 
     case (acc_state_current)
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_IDLE: begin
         acc_change_state           = cntrl_scheduler.start_load_x;
-        y_ready_o = acc_change_state;
+        y_ready_o                  = acc_change_state;
         acc_done_d                 = '0;
         y_write_reg_index_d        = '0;
         y_write_row_index_d        = '0;
@@ -483,6 +497,7 @@ module opope_ctrl
         inner_loop_counter_d       = '0;
         reg_write_to_engine_d      = '0;
         prefetched_d               = '0;
+        compute_d                  = '0;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Y_READ: begin
@@ -490,7 +505,7 @@ module opope_ctrl
           y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
           y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
           acc_change_state    = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
-          shift_acc             = 1'b1;
+          shift_acc           = 1'b1;
         end
         external_loading      = 1'b1;
         y_ready_o             = 1'b1;
@@ -508,7 +523,8 @@ module opope_ctrl
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
           shift_acc           = |y_write_row_index_q;
         end
-        y_ready_o = 1'b1;
+        compute_d        = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
+        y_ready_o        = 1'b1;
         external_loading = 1'b1;
         y_bias_selector  = 1'b1;
         in_ready_o       = 1'b1;
@@ -522,24 +538,26 @@ module opope_ctrl
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
           shift_acc           = |y_write_row_index_q;
         end
-        if (in_valid_i) begin // This has to happen after the prefetched y is loaded
-          inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
-          acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
-        end
         if (prefetched_q == 1'b1 && acc_state_current == ACC_Y_READ_ENGINE_RUNNING && acc_state_next == ACC_Z_RELOAD_Y_ENGINE) prefetched_d = 1'b0; // Reloaded value completed
         y_ready_o        = ~(prefetched_d ) &~ prefetched_q; //~acc_change_state;
-        in_ready_o       = 1'b1;
+        in_ready_o       = ~ compute_q;
         external_loading = ~(prefetched_q );
-        ce_enable        = in_valid_i;
+        ce_enable        = in_valid_i &~ compute_q;
+        if (ce_enable) begin // This has to happen after the prefetched y is loaded
+          inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
+          compute_d = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
+        end
+        acc_change_state = (prefetched_d | prefetched_q) & (compute_d | compute_q);
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_ENGINE_RUNNING: begin
-        if (in_valid_i) begin 
+        in_ready_o       = ~ compute_q;
+        ce_enable        = in_valid_i &~ compute_q;
+        if (ce_enable) begin
           inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
-          acc_change_state = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
+          compute_d = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
         end
-        in_ready_o                 = 1'b1;
-        ce_enable        = in_valid_i;
+        acc_change_state = compute_d | compute_q;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD_Y_ENGINE: begin // Storing the z values to acc, reload the y values to the engine
@@ -551,6 +569,8 @@ module opope_ctrl
         y_bias_selector            = 1'b1;
         in_ready_o                 = 1'b1;
         ce_enable                  = in_valid_i;
+        prefetched_d               = 1'b0;
+        compute_d                  = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD: begin // Storing the z values to acc
@@ -564,8 +584,13 @@ module opope_ctrl
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_STORE: begin // Stream out the z values to the memory
         out_valid_o = 1'b1;
-        in_ready_o  = ~acc_done_q;
-        if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
+        z_be_o      = max_loop_tc ? z_be_mask : {{DATAW/8{1'b1}}};
+        in_ready_o  = ~acc_done_q &~ compute_q;
+        ce_enable   = in_valid_i &~ acc_done_q &~ compute_q;
+        if (ce_enable) begin
+          inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1;
+          compute_d            = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
+        end
         if (out_ready_i) begin
           z_read_reg_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? 'b0: z_read_reg_index_q + 2;
           z_read_row_index_d = (z_read_reg_index_q == REG_PER_CE - 2) ? (z_read_row_index_q == Height - 1) ? 'b0: z_read_row_index_q + 1: z_read_row_index_q;
@@ -573,7 +598,7 @@ module opope_ctrl
           shift_acc = 1'b1;
         end
         external_loading = 1'b1;
-        ce_enable = in_valid_i &~ acc_done_q;
+        intm_loop_cnt_d  = acc_change_state & max_loop_tc ? '0 : intm_loop_cnt_q + acc_change_state;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
     endcase
@@ -619,6 +644,8 @@ module opope_ctrl
       prefetched_q          <= '0;
       acc_done_q            <= '0;
       last_iteration_q      <= '0;
+      intm_loop_cnt_q       <= '0;
+      compute_q             <= '0;
     end else begin
       acc_state_current     <= acc_state_next       ;
       current               <= next                 ;
@@ -637,6 +664,8 @@ module opope_ctrl
       prefetched_q          <= prefetched_d         ;
       acc_done_q            <= acc_done_d           ;
       last_iteration_q      <= last_iteration_d     ;
+      intm_loop_cnt_q       <= intm_loop_cnt_d      ;
+      compute_q             <= compute_d            ;
     end
   end
 

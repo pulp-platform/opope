@@ -34,6 +34,11 @@ int main() {
                     : (MEM_FMT == FP16)    ? (uint8_t)Float16
                     : (uint8_t)Float32;
 
+  const char *cmp = (COMP_FMT == FP8)  ? "FP8"  :
+                    (COMP_FMT == FP16) ? "FP16" : "FP32";
+
+  const char *mem = (MEM_FMT == FP8)  ? "FP8"  :
+                    (MEM_FMT == FP16) ? "FP16" : "FP32";
   volatile int errors = 0;
   int gold_sum = 0, check_sum = 0;
   int i, j;
@@ -41,7 +46,7 @@ int main() {
   int offload_id_tmp, offload_id;
 
   // Start O-POPE operation and sleeping until the end of computation
-  printf("Executing %dx%dx%d GeMM\n", m_size,n_size,k_size);
+  printf("Executing %dx%dx%d GeMM %s->%s\n", m_size,n_size,k_size, cmp, mem);
   printf("Triggering accelerator and going to sleep...\n");
 
   // Enable O-POPE

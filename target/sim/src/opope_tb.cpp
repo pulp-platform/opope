@@ -29,7 +29,11 @@
 #include <cstdint>
 #include <cerrno>
 #include <verilated.h>
+
+#ifdef TRACE_ENABLE
 #include <verilated_vcd_c.h>
+#endif
+
 #include ToString(TbHeader)
 
 // Path to the waveform dump
@@ -63,10 +67,12 @@ int main(int argc, char **argv, char **env) {
   Verilated::commandArgs(argc, argv);
   Vopope_tb *dut = new Vopope_tb;
 
+#ifdef TRACE_ENABLE
   Verilated::traceEverOn(true);
   VerilatedVcdC *m_trace = new VerilatedVcdC;
   dut->trace(m_trace, 5);
   m_trace->open(Waveforms);
+#endif
 
   while (!Verilated::gotFinish()) {
     // Reset DUT
@@ -76,11 +82,15 @@ int main(int argc, char **argv, char **env) {
     // Set fetch enable to core
     dut_set_fetch_en(dut, sim_time, 1);
     dut->eval();
+#ifdef TRACE_ENABLE
     m_trace->dump(sim_time);
+#endif
     sim_time++;
   }
 
+#ifdef TRACE_ENABLE
   m_trace->close();
+#endif
   delete dut;
   exit(EXIT_SUCCESS);
 }
