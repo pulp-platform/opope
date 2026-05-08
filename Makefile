@@ -176,20 +176,11 @@ CargoInstallDir := $(InstallDir)/cargo
 RustupInstallDir := $(InstallDir)/rustup
 Cargo := $(CargoInstallDir)/bin/cargo
 
-verilator: $(InstallDir)/bin/verilator
-
-$(InstallDir)/bin/verilator:
-	rm -rf $(VendorDir)/verilator
-	mkdir -p $(VendorDir) && cd $(VendorDir) && git clone https://github.com/verilator/verilator.git
-	# Checkout the right version
-	cd $(VendorDir)/verilator && git reset --hard && git fetch && git checkout $(VerilatorVersion)
-	# Compile verilator
-	sudo apt install libfl-dev help2man
-	mkdir -p $(VerilatorInstallDir) && cd $(VendorDir)/verilator && git clean -xfdf && autoconf && \
-	./configure --prefix=$(VerilatorInstallDir) CXX=$(CXX) && make -j$(NumCoresHalf)  && make install
+###########
+#   GCC   #
+###########
 
 riscv32-gcc: $(GccInstallDir)
-
 $(GccInstallDir):
 	rm -rf $(GccInstallDir) $(VendorDir)/$(RiscvTarDir)
 	mkdir -p $(InstallDir)
@@ -197,8 +188,11 @@ $(GccInstallDir):
 	wget $(GccUrl) -O $(RiscvTarDir) && \
 	tar -xzvf $(RiscvTarDir) -C $(InstallDir) riscv
 
-bender: $(CargoInstallDir)/bin/bender
+##############
+#   Bender   #
+##############
 
+bender: $(CargoInstallDir)/bin/bender
 $(CargoInstallDir)/bin/bender:
 	curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf > $(RustupInit)
 	mkdir -p $(InstallDir)
@@ -206,3 +200,26 @@ $(CargoInstallDir)/bin/bender:
 	chmod +x $(RustupInit); source $(RustupInit) -y && \
 	$(Cargo) install bender
 	rm -rf $(RustupInit)
+
+###############
+#  Verilator  #
+###############
+
+target/sim/toolchain/verilator:
+	mkdir -p target/sim/toolchain
+	cd target/sim/toolchain && git clone https://github.com/verilator/verilator.git
+	cd target/sim/toolchain/verilator &&                     \
+		git checkout v5.034 && \
+		git submodule update --init --recursive --jobs=8 .
+
+target/sim/toolchain/help2man:
+	mkdir -p target/sim/toolchain/help2man
+	cd target/sim/toolchain/help2man && wget -c https://ftp.gnu.org/gnu/help2man/help2man-1.49.3.tar.xz
+	cd target/sim/toolchain/help2man && tar xf help2man-1.49.3.tar.xz
+
+verilator: $(VerilatorInstallDir)/bin/verilator
+$(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
+	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
+	cd $<; unset VERILATOR_ROOT; \
+	autoconf && CC=gcc-11.2.0 CXX=g++-11.2.0 ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
+	PATH=$(PATH):$(VerilatorInstallDir)/bin make -j4 && make install
