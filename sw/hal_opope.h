@@ -50,23 +50,25 @@ static inline void hwpe_cg_enable() { return; }
 
 static inline void hwpe_cg_disable() { return; }
 
-void opope_cfg(unsigned int x, unsigned int w, unsigned int z, uint16_t m_size, uint16_t n_size,
-                 uint16_t k_size, uint8_t gemm_op, uint8_t comp_fmt, uint8_t mem_fmt) {
+void opope_cfg(unsigned int x, unsigned int w, unsigned int z, uint16_t m_size,
+               uint16_t n_size, uint16_t k_size, uint8_t gemm_op,
+               uint8_t comp_fmt, uint8_t mem_fmt) {
 
   uint32_t mcfg_reg0 = 0;
   uint32_t mcfg_reg1 = 0;
   uint32_t arith_reg = 0;
-  uint8_t  mixed_dt  = COMP_FMT != MEM_FMT;
-  uint8_t  shift     = n_size & mixed_dt;
+  uint8_t mixed_dt = COMP_FMT != MEM_FMT;
+  uint8_t shift = n_size & mixed_dt;
 
   mcfg_reg0 = (k_size << 16) | (m_size << 0);
-  mcfg_reg1 = ((n_size + shift) >>  mixed_dt) << 0;
+  mcfg_reg1 = ((n_size + shift) >> mixed_dt) << 0;
 
   // [MACFG][ 9: 7]):   Memory  format float32
   // [MACFG][ 19: 17]): Compute format float16 or float32
 
-  // tfp_printf("comp_fmt: %d, gemm_op: %d, mem_fmt: %d\n", comp_fmt, gemm_op, mem_fmt);
-  arith_reg =  (comp_fmt <<17) | (gemm_op << 10) | (mem_fmt << 7);
+  // tfp_printf("comp_fmt: %d, gemm_op: %d, mem_fmt: %d\n", comp_fmt, gemm_op,
+  // mem_fmt);
+  arith_reg = (comp_fmt << 17) | (gemm_op << 10) | (mem_fmt << 7);
 
   opope_x_add_set((unsigned int)x);
   opope_w_add_set((unsigned int)w);
