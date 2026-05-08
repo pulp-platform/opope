@@ -23,10 +23,12 @@ jobs:
           SPDX-License-Identifier: (SHL-0.51|Apache-2.0)
         # Exclude generated headers (no license checker support for optional lines)
         exclude_paths: |
-          sw/*
-          scripts/*
-          golden-model/*
-          install/*
+          sw/utils/tinyprintf.h
+          sw/inc/*
+          *.md
+          *.do
+          *.lock
+          LICENSE*
 
   lint-sv:
     runs-on: ubuntu-latest
@@ -43,6 +45,32 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         fail_on_error: true
         reviewdog_reporter: github-check
+
+  lint-cxx:
+      runs-on: ubuntu-latest
+      steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Run Clang-format
+        uses: DoozyX/clang-format-lint-action@v0.14
+        with:
+          extensions: 'c,h,cpp'
+          clangFormatVersion: 14
+          style: >
+            {
+            IndentWidth: 2,
+            ColumnLimit: 100,
+            AlignEscapedNewlines: DontAlign,
+            SortIncludes: false,
+            AllowShortFunctionsOnASingleLine: true,
+            AllowShortIfStatementsOnASingleLine: true,
+            AllowShortLoopsOnASingleLine: true
+            }
+          exclude: |
+            ./sw/inc/*
+            ./sw/utils/tinyprintf.h
 
   gitlab-ci:
     runs-on: ubuntu-latest

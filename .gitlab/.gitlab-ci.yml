@@ -1,7 +1,110 @@
-# Copyright 2023 ETH Zurich and University of Bologna.
+# Copyright 2026 ETH Zurich and University of Bologna.
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
+#
+# Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 
-test:
+.base:
+  artifacts:
+    when: always
+    expire_in: 1 week
+
+stages:
+  - init
+  - build
+  - test
+
+# --- Stage: Init ---
+# Sets up the Python environment and links necessary dependencies
+init:
+  stage: init
+  extends: .base
   script:
-    - echo "CI works"
+    - make bender
+    - make riscv32-gcc
+    - make verilator
+    - source scripts/setup-py.sh
+  artifacts:
+    paths:
+      - ./golden-model/venv
+      - ./vendor
+
+# --- Stage: Build ---
+# Compiles the hardware (RTL) so it doesn't have to be rebuilt for every test
+.opope-build-tpl:
+  extends: .base
+  stage: build
+  dependencies:
+    - init
+  script:
+    - export PATH=$PWD/vendor/install/riscv/bin:$PWD/vendor/install/verilator/bin:$PATH
+    - source scripts/${SETUP_CONFIG}.sh
+    - make synth-ips target=verilator
+    - make hw-build target=verilator
+  artifacts:
+    paths:
+      - ./.bender
+      - ./scripts/synth_compile.tcl
+      - ./target/sim/verilator/*
+
+opope-build-hwpe:
+  extends: .opope-build-tpl
+  variables:
+    SETUP_CONFIG: "setup-hwpe"
+
+# --- Stage: Test ---
+# Runs simulation across a matrix of parameters
+.opope-sim-tpl:
+  extends: .base
+  stage: test
+  script:
+    - export PATH=$PWD/vendor/install/riscv/bin:$PWD/vendor/install/verilator/bin:$PATH
+    - source scripts/${SETUP_CONFIG}.sh
+    # Generate golden model reference
+    - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
+    # Build the software with specific flags if complex mode is needed
+    - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE}
+    # Run the simulation (hw-run target from your Makefile)
+    - make hw-run target=verilator &> ./target/sim/verilator/transcript
+    # Validation: Look for "Success!" in the simulation transcript
+    - 'grep -rn "Success!" ./target/sim/verilator/transcript'
+    - '! grep -rn "Fail!" ./target/sim/verilator/transcript'
+
+# Example for a hwpe-specific test suite
+hwpe-test:
+  extends: .opope-sim-tpl
+  dependencies:
+    - opope-build-hwpe
+  variables:
+    SETUP_CONFIG: "setup-hwpe"
+    COMPLEX_MODE: "0"
+  parallel:
+    matrix:
+      - { OP: gemm, M: 16, N: 64, K: 32, FMT: FP16 }
+      - { OP: gemm, M: 32, N: 96, K: 18, FMT: FP16 }
+      - { OP: gemm, M: 64, N: 53, K: 16, FMT: FP16 }
+      - { OP: gemm, M: 96, N: 21, K: 45, FMT: FP16 }
+      - { OP: gemm, M: 57, N: 16, K: 64, FMT: FP16 }
+      - { OP: gemm, M: 15, N: 32, K: 71, FMT: FP16 }
+      - { OP: gemm, M: 37, N: 47, K: 96, FMT: FP16 }
+      - { OP: gemm, M: 41, N: 63, K: 13, FMT: FP16 }
+      - { OP: gemm, M: 16, N: 64, K: 32, FMT: FP8FP16 }
+      - { OP: gemm, M: 32, N: 96, K: 18, FMT: FP8FP16 }
+      - { OP: gemm, M: 64, N: 53, K: 16, FMT: FP8FP16 }
+      - { OP: gemm, M: 96, N: 21, K: 45, FMT: FP8FP16 }
+      - { OP: gemm, M: 57, N: 16, K: 64, FMT: FP8FP16 }
+      - { OP: gemm, M: 15, N: 32, K: 71, FMT: FP8FP16 }
+      - { OP: gemm, M: 37, N: 47, K: 96, FMT: FP8FP16 }
+      - { OP: gemm, M: 41, N: 63, K: 13, FMT: FP8FP16 }
+
+# Example for a complex-specific test suite
+complex-test:
+  extends: .opope-sim-tpl
+  dependencies:
+    - opope-build-hwpe
+  variables:
+    SETUP_CONFIG: "setup-hwpe"
+    COMPLEX_MODE: "0"
+  parallel:
+    matrix:
+      - { OP: gemm, M: 8, N: 8, K: 8, FMT: FP16 }
