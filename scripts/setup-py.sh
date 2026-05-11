@@ -9,6 +9,7 @@ export PYTHON=python3
 export PENV=$(pwd)/golden-model/venv
 $PYTHON -m venv $PENV
 source $PENV/bin/activate
-$PYTHON -m pip install --upgrade pip setuptools wheel
-$PYTHON -m pip install numpy torch
+$PYTHON -m ensurepip --upgrade
+$PYTHON -m pip install --no-cache-dir --upgrade pip setuptools wheel
+$PYTHON -m pip install --no-cache-dir numpy torch
 deactivate
