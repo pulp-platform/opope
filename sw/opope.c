@@ -34,13 +34,9 @@ int main() {
                     : (MEM_FMT == FP16) ? (uint8_t)Float16
                                         : (uint8_t)Float32;
 
-  const char *cmp = (COMP_FMT == FP8)    ? "FP8"
-                    : (COMP_FMT == FP16) ? "FP16"
-                                         : "FP32";
+  const char *cmp = (COMP_FMT == FP8) ? "FP8" : (COMP_FMT == FP16) ? "FP16" : "FP32";
 
-  const char *mem = (MEM_FMT == FP8)    ? "FP8"
-                    : (MEM_FMT == FP16) ? "FP16"
-                                        : "FP32";
+  const char *mem = (MEM_FMT == FP8) ? "FP8" : (MEM_FMT == FP16) ? "FP16" : "FP32";
   volatile int errors = 0;
   int gold_sum = 0, check_sum = 0;
   int i, j;
@@ -59,8 +55,8 @@ int main() {
   while ((offload_id_tmp = hwpe_acquire_job()) < 0)
     ;
 
-  opope_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size,
-            k_size, (uint8_t)gemm_ops, comp_fmt,
+  opope_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size, k_size,
+            (uint8_t)gemm_ops, comp_fmt,
             mem_fmt); // Keep the gemm_ops GEMM for both the sdotp and the fma
   hwpe_trigger_job();
 

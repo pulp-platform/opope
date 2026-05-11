@@ -33,25 +33,24 @@
 #define FP16_MAX_ULP 64u
 #define FP8FP16_MAX_ULP 128u
 
-#define MAX_ULP                                                                \
-  ((COMP_FMT == FP8 && MEM_FMT == FP16)    ? FP8FP16_MAX_ULP                   \
-   : (COMP_FMT == FP16 && MEM_FMT == FP16) ? FP16_MAX_ULP                      \
-   : (COMP_FMT == FP16 && MEM_FMT == FP32) ? FP16FP32_MAX_ULP                  \
-   : (COMP_FMT == FP32 && MEM_FMT == FP32) ? FP32_MAX_ULP                      \
+#define MAX_ULP \
+  ((COMP_FMT == FP8 && MEM_FMT == FP16)    ? FP8FP16_MAX_ULP \
+   : (COMP_FMT == FP16 && MEM_FMT == FP16) ? FP16_MAX_ULP \
+   : (COMP_FMT == FP16 && MEM_FMT == FP32) ? FP16FP32_MAX_ULP \
+   : (COMP_FMT == FP32 && MEM_FMT == FP32) ? FP32_MAX_ULP \
                                            : 0u)
-#define ABS_TOL_BITS                                                           \
-  ((COMP_FMT == FP8 && MEM_FMT == FP16)    ? FP8FP16_ABS_TOL_BITS              \
-   : (COMP_FMT == FP16 && MEM_FMT == FP16) ? FP16_ABS_TOL_BITS                 \
-   : (COMP_FMT == FP16 && MEM_FMT == FP32) ? FP16FP32_ABS_TOL_BITS             \
-   : (COMP_FMT == FP32 && MEM_FMT == FP32) ? FP32_ABS_TOL_BITS                 \
+#define ABS_TOL_BITS \
+  ((COMP_FMT == FP8 && MEM_FMT == FP16)    ? FP8FP16_ABS_TOL_BITS \
+   : (COMP_FMT == FP16 && MEM_FMT == FP16) ? FP16_ABS_TOL_BITS \
+   : (COMP_FMT == FP16 && MEM_FMT == FP32) ? FP16FP32_ABS_TOL_BITS \
+   : (COMP_FMT == FP32 && MEM_FMT == FP32) ? FP32_ABS_TOL_BITS \
                                            : 0x0)
 
 static inline int32_t fp32_to_ordered(uint32_t f) {
-  if (f & 0x80000000u)    /* negative float */
-    return (int32_t)(~f); /* invert all bits → ordered negative int */
-  else                    /* positive float */
-    return (int32_t)(f ^
-                     0x80000000u); /* flip sign bit → ordered positive int */
+  if (f & 0x80000000u)                 /* negative float */
+    return (int32_t)(~f);              /* invert all bits → ordered negative int */
+  else                                 /* positive float */
+    return (int32_t)(f ^ 0x80000000u); /* flip sign bit → ordered positive int */
 }
 static inline uint32_t fp32_ulp_diff(uint32_t a, uint32_t b) {
   int32_t oa = fp32_to_ordered(a);
@@ -59,15 +58,13 @@ static inline uint32_t fp32_ulp_diff(uint32_t a, uint32_t b) {
 
   /* Use int64 to avoid signed-overflow UB for extreme cases */
   int64_t diff = (int64_t)oa - (int64_t)ob;
-  if (diff < 0)
-    diff = -diff;
+  if (diff < 0) diff = -diff;
 
   return (diff > (int64_t)0xFFFFFFFFu) ? 0xFFFFFFFFu : (uint32_t)diff;
 }
 static inline int compare_fp32(uint32_t a, uint32_t b) {
   /* Fast path: bit-identical */
-  if (a == b)
-    return 0; /* equal */
+  if (a == b) return 0; /* equal */
 
   /* NaN / Inf check (exponent field = 0xFF) */
   uint32_t exp_a = (a >> 23) & 0xFFu;
@@ -80,8 +77,7 @@ static inline int compare_fp32(uint32_t a, uint32_t b) {
   }
 
   /* ULP tolerance – reliable away from zero */
-  if (fp32_ulp_diff(a, b) <= MAX_ULP)
-    return 0;
+  if (fp32_ulp_diff(a, b) <= MAX_ULP) return 0;
 
   return 1; /* mismatch */
 }
@@ -99,8 +95,7 @@ int opope32_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
       errors++;
 #ifdef DEBUG
       if (errors == 1)
-        tfp_printf("FP32 error @ %d: act=0x%08x ref=0x%08x\n", i, actual_z[i],
-                   golden_z[i]);
+        tfp_printf("FP32 error @ %d: act=0x%08x ref=0x%08x\n", i, actual_z[i], golden_z[i]);
 
 #endif
     }
@@ -120,15 +115,13 @@ static inline uint32_t fp16_ulp_diff(uint16_t a, uint16_t b) {
   int32_t ob = fp16_to_ordered(b);
 
   int32_t diff = oa - ob;
-  if (diff < 0)
-    diff = -diff;
+  if (diff < 0) diff = -diff;
 
   return (uint32_t)diff;
 }
 static inline int compare_fp16(uint16_t a, uint16_t b) {
   /* Fast path */
-  if (a == b)
-    return 0;
+  if (a == b) return 0;
 
   /* NaN / Inf: exponent field = 0x1F (31 in 5-bit) */
   uint16_t exp_a = (a >> 10) & 0x1Fu;
@@ -140,8 +133,7 @@ static inline int compare_fp16(uint16_t a, uint16_t b) {
   }
 
   /* ULP tolerance */
-  if (fp16_ulp_diff(a, b) <= MAX_ULP)
-    return 0;
+  if (fp16_ulp_diff(a, b) <= MAX_ULP) return 0;
 
   return 1; /* mismatch */
 }
@@ -161,15 +153,13 @@ int opope16_compare_int(uint32_t *actual_z, uint32_t *golden_z, int len) {
     if (compare_fp16(a_l, g_l)) {
       errors++;
 #ifdef DEBUG
-      if (errors == 1)
-        tfp_printf("FP16-lo error @ %d: act=0x%04x ref=0x%04x\n", i, a_l, g_l);
+      if (errors == 1) tfp_printf("FP16-lo error @ %d: act=0x%04x ref=0x%04x\n", i, a_l, g_l);
 #endif
     }
     if (compare_fp16(a_h, g_h)) {
       errors++;
 #ifdef DEBUG
-      if (errors == 1)
-        tfp_printf("FP16-hi error @ %d: act=0x%04x ref=0x%04x\n", i, a_h, g_h);
+      if (errors == 1) tfp_printf("FP16-hi error @ %d: act=0x%04x ref=0x%04x\n", i, a_h, g_h);
 #endif
     }
   }
