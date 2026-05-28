@@ -8,13 +8,11 @@
 
 Verilator ?= $(VerilatorInstallDir)/bin/verilator
 GtkWave ?= gtkwave
-VerilatorRoot ?= $(VerilatorInstallDir)/share/verilator
 Module := opope
 ObjDirName := obj_dir
 Vmodule := V$(Module)
 VerilatorDir := $(SimDir)/$(target)
 VerilatorSrc := $(SimDir)/src
-VerilatorObjDir := $(VerilatorPath)/$(ObjDirName)
 VerilatorAbsObjDir := $(VerilatorDir)/$(ObjDirName)
 VerilatorCompileScript := $(VerilatorDir)/compile.$(target).tcl
 VerilatorWaves := $(VerilatorDir)/opope.vcd

@@ -6,30 +6,50 @@
 #
 # Top-level Makefile
 
-# Paths to folders
+SHELL      := /bin/bash
+# Directories
 RootDir    := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
-TargetDir  := $(RootDir)target
+TargetDir  := $(RootDir)/target
 SimDir     := $(TargetDir)/sim
-ScriptsDir := $(RootDir)scripts
-VerilatorPath := target/sim/verilator
-VsimPath      := target/sim/vsim
-SW         ?= $(RootDir)sw
+ScriptsDir := $(RootDir)/scripts
+SW         ?= $(RootDir)/sw
+# Install tools
+VendorDir 					 ?= $(RootDir)vendor
+InstallDir 					 ?= $(VendorDir)/install
+# Verilator
+VerilatorVersion 		 ?= v5.034
+VerilatorInstallDir  := $(InstallDir)/verilator
+VerilatorCC  				 := gcc-11.2.0
+VerilatorCXX 				 := g++-11.2.0
+# GCC
+GccInstallDir 			 := $(InstallDir)/riscv
+Gcc           			 ?= $(GccInstallDir)/bin/
+# Bender
+RustupInit 					 := $(ScriptsDir)/rustup-init.sh
+CargoInstallDir 		 := $(InstallDir)/cargo
+RustupInstallDir 		 := $(InstallDir)/rustup
+Cargo 							 := $(CargoInstallDir)/bin/cargo
+Bender     					 ?= $(CargoInstallDir)/bin/bender
+# HW
+compile_script_synth ?= $(RootDir)scripts/synth_compile.tcl
+# SW
 BUILD_DIR  ?= $(SW)/build
-SIM_DIR    ?= $(RootDir)vsim
-QUESTA     ?= questa-2023.4
-Bender     ?= $(CargoInstallDir)/bin/bender
-Gcc        ?= $(GccInstallDir)/bin/
 ISA        ?= riscv
 ARCH       ?= rv
 XLEN       ?= 32
-XTEN       ?= imc_zicsr
+XTEN       ?= imc
 PYTHON     ?= python3
 
-target ?= vsim
-TargetPath := $(SimDir)/$(target)
+# Configuration Parameters
+target 	 			?= verilator
+gui      			?= 0
+verbose 			?= 0
+P_STALL  			?= 0.0
+DEBUG    			?= 1
+OPOPE_COMPLEX ?= 0
 
 # Included makefrags
-include $(TargetPath)/$(target).mk
+include $(SimDir)/$(target)/$(target).mk
 include bender_common.mk
 include bender_sim.mk
 include bender_synth.mk
@@ -40,16 +60,6 @@ else
 	TEST_SRCS := $(SW)/opope.c
 endif
 
-compile_script_synth ?= $(RootDir)scripts/synth_compile.tcl
-
-WORK_PATH = $(SIM_DIR)/work
-
-# Useful Parameters
-gui      ?= 0
-ipstools ?= 0
-P_STALL  ?= 0.0
-
-DEBUG ?= 1
 
 ifeq ($(verbose),1)
 	FLAGS += -DVERBOSE
@@ -60,10 +70,42 @@ ifeq ($(debug),1)
 endif
 
 
-
-# endif
-
 # Include directories
+
+# Build implicit rules
+
+#################
+#   Init Repo   #
+#################
+
+init: riscv32-gcc bender verilator
+	source scripts/setup-py.sh
+	
+init-iis:
+	ln -s /usr/scratch/pisoc2/dcammarata/opope/golden-model/venv golden-model/venv
+	ln -s /usr/scratch/pisoc2/dcammarata/opope/vendor vendor 
+
+####################
+#   Golden Model   #
+####################
+
+OP     		?= gemm
+fp_fmt 		?= FP16
+M      		?= 4
+N      		?= 4
+K      		?= 4
+transpose ?= 1
+
+golden: golden-clean
+	$(MAKE) -C golden-model $(OP) SW=$(SW)/inc M=$(M) N=$(N) K=$(K) fp_fmt=$(fp_fmt) transpose=$(transpose)
+
+golden-clean:
+	$(MAKE) -C golden-model golden-clean
+
+##########
+#   SW   #
+##########
+
 INC += -I$(SW)
 INC += -I$(SW)/inc
 INC += -I$(SW)/utils
@@ -85,7 +127,9 @@ DUMP=$(BUILD_DIR)/verif.dump
 STIM_INSTR=$(BUILD_DIR)/stim_instr.txt
 STIM_DATA=$(BUILD_DIR)/stim_data.txt
 
-# Build implicit rules
+dis:
+	$(OBJDUMP) -d $(BIN) > $(DUMP)
+
 $(STIM_INSTR) $(STIM_DATA): $(BIN)
 	objcopy --srec-len 1 --output-target=srec $(BIN) $(BIN).s19
 	$(PYTHON) scripts/parse_s19.py < $(BIN).s19 > $(BIN).txt
@@ -103,20 +147,16 @@ $(OBJ): $(TEST_SRCS)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-SHELL := /bin/bash
-
-init: riscv32-gcc bender
-	source scripts/setup-py.sh
-	
-init-iis:
-	ln -s /usr/scratch/pisoc2/dcammarata/opope/golden-model/venv golden-model/venv
-	ln -s /usr/scratch/pisoc2/dcammarata/opope/vendor vendor 
-
-# Generate instructions and data stimuli
 sw-build: $(STIM_INSTR) $(STIM_DATA_X_W) $(STIM_DATA_Y_Z) dis
 
-$(SIM_DIR):
-	mkdir -p $(SIM_DIR)
+sw-clean:
+	rm -rf $(BUILD_DIR)
+
+sw-all: sw-clean sw-build
+
+######################
+#   RTL Simulation   #
+######################
 
 synth-ips:
 	$(Bender) update
@@ -125,31 +165,6 @@ synth-ips:
 	$(synth_targs) $(synth_defs)   \
 	> ${compile_script_synth}
 
-sw-clean:
-	rm -rf $(BUILD_DIR)
-
-dis:
-	$(OBJDUMP) -d $(BIN) > $(DUMP)
-
-OP     ?= gemm
-fp_fmt ?= FP16
-M      ?= 4
-N      ?= 4
-K      ?= 4
-transpose ?= 1
-
-golden: golden-clean
-	$(MAKE) -C golden-model $(OP) SW=$(SW)/inc M=$(M) N=$(N) K=$(K) fp_fmt=$(fp_fmt) transpose=$(transpose)
-
-golden-clean:
-	$(MAKE) -C golden-model golden-clean
-
-clean-all: sw-clean
-	rm -rf $(RootDir).bender
-	rm -rf $(compile_script)
-
-sw-all: sw-clean sw-build
-
 sim: hw-clean sw-clean synth-ips hw-script hw-build sw-build hw-run
 
 sim-all:
@@ -157,36 +172,30 @@ sim-all:
 	rm -rf logs/*
 	source scripts/run_all.sh $(target) &> logs/sim_all.log
 
-# Install tools
-CXX ?= g++
-NumCores := $(shell nproc)
-NumCoresHalf := $(shell echo "$$(($(NumCores) / 2))")
-VendorDir ?= $(RootDir)vendor
-InstallDir ?= $(VendorDir)/install
-# Verilator
-VerilatorVersion ?= v5.028
-VerilatorInstallDir := $(InstallDir)/verilator
-# GCC
-GccInstallDir := $(InstallDir)/riscv
-RiscvTarDir := riscv.tar.gz
-GccUrl := https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2024.08.28/riscv32-elf-ubuntu-20.04-gcc-nightly-2024.08.28-nightly.tar.gz
-# Bender
-RustupInit := $(ScriptsDir)/rustup-init.sh
-CargoInstallDir := $(InstallDir)/cargo
-RustupInstallDir := $(InstallDir)/rustup
-Cargo := $(CargoInstallDir)/bin/cargo
+#############
+#   Clean   #
+#############
+
+clean-all: sw-clean
+	rm -rf $(RootDir).bender
+	rm -rf $(compile_script)
 
 ###########
 #   GCC   #
 ###########
 
-riscv32-gcc: $(GccInstallDir)
-$(GccInstallDir):
-	rm -rf $(GccInstallDir) $(VendorDir)/$(RiscvTarDir)
-	mkdir -p $(InstallDir)
-	cd $(VendorDir) && \
-	wget $(GccUrl) -O $(RiscvTarDir) && \
-	tar -xzvf $(RiscvTarDir) -C $(InstallDir) riscv
+target/sim/toolchain/riscv-gnu-toolchain:
+	mkdir -p target/sim/toolchain/
+	cd target/sim/toolchain/ && git clone https://github.com/pulp-platform/pulp-riscv-gnu-toolchain.git riscv-gnu-toolchain
+	cd target/sim/toolchain/riscv-gnu-toolchain &&           \
+		git checkout 70acebe256fc49114b5f068fa79f03eb9affed09 && \
+		git submodule update --init --recursive --jobs=8 .
+
+riscv32-gcc: target/sim/toolchain/riscv-gnu-toolchain
+	mkdir -p $(GccInstallDir)
+	cd target/sim/toolchain/riscv-gnu-toolchain && rm -rf build && mkdir -p build && cd build && \
+	../configure --prefix=$(GccInstallDir) --with-arch=rv32imafd --with-abi=ilp32d --with-cmodel=medlow --enable-multilib && \
+	make MAKEINFO=true -j4
 
 ##############
 #   Bender   #
@@ -209,7 +218,7 @@ target/sim/toolchain/verilator:
 	mkdir -p target/sim/toolchain
 	cd target/sim/toolchain && git clone https://github.com/verilator/verilator.git
 	cd target/sim/toolchain/verilator &&                     \
-		git checkout v5.034 && \
+		git checkout $(VerilatorVersion) && \
 		git submodule update --init --recursive --jobs=8 .
 
 target/sim/toolchain/help2man:
@@ -221,5 +230,5 @@ verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
 	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
 	cd $<; unset VERILATOR_ROOT; \
-	autoconf && CC=gcc-11.2.0 CXX=g++-11.2.0 ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
+	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
 	PATH=$(PATH):$(VerilatorInstallDir)/bin make -j4 && make install

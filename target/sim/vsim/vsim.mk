@@ -4,14 +4,15 @@
 #
 # Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 #
-# Makefragment for Verilator simulation.
+# Makefragment for Questasim simulation.
 
-Questa ?=
+Questa ?= questa-2023.4
 Module := opope
 VsimDir := $(SimDir)/$(target)
 VsimCompileScript := $(VsimDir)/compile.$(target).tcl
 VsimWaves := $(VsimDir)/wave.do
-
+Tb := opope_tb_wrap
+CompileFlags := +acc -permissive -suppress 2583 -suppress 13314
 
 module_vcd ?= 0
 tck       := 2
@@ -23,8 +24,6 @@ DEFS += -DVCD_DUMP
 DEFS += -DVCD_DUMP_FILE=\"$(vcd_file)\"
 endif
 
-Tb := opope_tb_wrap
-CompileFlags := +acc -permissive -suppress 2583 -suppress 13314
 
 ifeq ($(OPOPE_COMPLEX),1)
 	TbType := opope_complex_tb
@@ -40,7 +39,7 @@ else
 	VsimFlags += -c
 endif
 
-VsimFlags += -suppress 3009
+VsimFlags += -suppress 3009 -suppress 8315
 
 hw-clean:
 	rm -rf $(VsimCompileScript) $(VsimDir)/transcript $(VsimDir)/modelsim.ini $(VsimDir)/*.wlf $(VsimDir)/work
@@ -62,7 +61,7 @@ hw-build: hw-script
 
 hw-run:
 	cd $(VsimDir);                \
-	$(QUESTA) $(target) $(Tb)_opt \
+	$(Questa) $(target) $(Tb)_opt \
 	$(VsimFlags)                  \
 	+STIM_INSTR=$(STIM_INSTR) \
 	+STIM_DATA=$(STIM_DATA)  \
