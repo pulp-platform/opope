@@ -192,6 +192,7 @@ target/sim/toolchain/riscv-gnu-toolchain:
 		git submodule update --init --recursive --jobs=8 .
 
 riscv32-gcc: target/sim/toolchain/riscv-gnu-toolchain
+	rm -rf $(GccInstallDir)
 	mkdir -p $(GccInstallDir)
 	cd target/sim/toolchain/riscv-gnu-toolchain && rm -rf build && mkdir -p build && cd build && \
 	../configure --prefix=$(GccInstallDir) --with-arch=rv32imafd --with-abi=ilp32d --with-cmodel=medlow --enable-multilib && \
@@ -203,6 +204,7 @@ riscv32-gcc: target/sim/toolchain/riscv-gnu-toolchain
 
 bender: $(CargoInstallDir)/bin/bender
 $(CargoInstallDir)/bin/bender:
+	rm -rf $(CargoInstallDir) $(RustupInstallDir)
 	curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf > $(RustupInit)
 	mkdir -p $(InstallDir)
 	export CARGO_HOME=$(CargoInstallDir) && export RUSTUP_HOME=$(RustupInstallDir) && \
@@ -228,6 +230,7 @@ target/sim/toolchain/help2man:
 
 verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
+	rm -rf $(VerilatorInstallDir)
 	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
 	cd $<; unset VERILATOR_ROOT; \
 	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
