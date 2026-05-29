@@ -195,7 +195,7 @@ riscv32-gcc: target/sim/toolchain/riscv-gnu-toolchain
 	rm -rf $(GccInstallDir)
 	mkdir -p $(GccInstallDir)
 	cd target/sim/toolchain/riscv-gnu-toolchain && rm -rf build && mkdir -p build && cd build && \
-	PATH=$$(echo $$PATH | tr ':' '\n' | grep -v '$(GccInstallDir)' | tr '\n' ':') \
+	export PATH=$$(echo $$PATH | tr ':' '\n' | grep -v '$(GccInstallDir)' | tr '\n' ':') && \
 	CC=$(VerilatorCC) CXX=$(VerilatorCXX) \
 	../configure --prefix=$(GccInstallDir) --with-arch=rv32imafd --with-abi=ilp32d --with-cmodel=medlow --enable-multilib \
 	&& make MAKEINFO=true -j4
