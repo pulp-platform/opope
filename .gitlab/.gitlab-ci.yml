@@ -21,7 +21,7 @@ init:
   extends: .base
   script:
     - make bender
-    - make riscv32-gcc
+    - make riscv32-gcc || (cat target/sim/toolchain/riscv-gnu-toolchain/build/config.log && false)
     - make verilator
     - source scripts/setup-py.sh
   artifacts:
