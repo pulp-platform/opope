@@ -80,10 +80,6 @@ endif
 
 init: riscv32-gcc bender verilator
 	source scripts/setup-py.sh
-	
-init-iis:
-	ln -s /usr/scratch/pisoc2/dcammarata/opope/golden-model/venv golden-model/venv
-	ln -s /usr/scratch/pisoc2/dcammarata/opope/vendor vendor 
 
 ####################
 #   Golden Model   #
