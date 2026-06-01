@@ -1,5 +1,5 @@
 // Copyright 2025 ETH Zurich and University of Bologna.
-// Solderpad Hardware License, Version 0.51, see LICENSE for details.
+// Solderpad Hardware License, Version 0.51, see LICENSE_HW for details.
 // SPDX-License-Identifier: SHL-0.51
 //
 // Author: Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
