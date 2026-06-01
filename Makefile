@@ -14,22 +14,22 @@ SimDir     := $(TargetDir)/sim
 ScriptsDir := $(RootDir)/scripts
 SW         ?= $(RootDir)/sw
 # Install tools
-VendorDir 					 ?= $(RootDir)vendor
-InstallDir 					 ?= $(VendorDir)/install
+VendorDir            ?= $(RootDir)vendor
+InstallDir           ?= $(VendorDir)/install
 # Verilator
-VerilatorVersion 		 ?= v5.034
+VerilatorVersion     ?= v5.034
 VerilatorInstallDir  := $(InstallDir)/verilator
-VerilatorCC  				 := gcc-11.2.0
-VerilatorCXX 				 := g++-11.2.0
+VerilatorCC          := gcc-11.2.0
+VerilatorCXX         := g++-11.2.0
 # GCC
-GccInstallDir 			 := $(InstallDir)/riscv
-Gcc           			 ?= $(GccInstallDir)/bin/
+GccInstallDir        := $(InstallDir)/riscv
+Gcc                  ?= $(GccInstallDir)/bin/
 # Bender
-RustupInit 					 := $(ScriptsDir)/rustup-init.sh
-CargoInstallDir 		 := $(InstallDir)/cargo
-RustupInstallDir 		 := $(InstallDir)/rustup
-Cargo 							 := $(CargoInstallDir)/bin/cargo
-Bender     					 ?= $(CargoInstallDir)/bin/bender
+RustupInit           := $(ScriptsDir)/rustup-init.sh
+CargoInstallDir      := $(InstallDir)/cargo
+RustupInstallDir     := $(InstallDir)/rustup
+Cargo                := $(CargoInstallDir)/bin/cargo
+Bender               ?= $(CargoInstallDir)/bin/bender
 # HW
 compile_script_synth ?= $(RootDir)scripts/synth_compile.tcl
 # SW
@@ -41,11 +41,11 @@ XTEN       ?= imc
 PYTHON     ?= python3
 
 # Configuration Parameters
-target 	 			?= verilator
-gui      			?= 0
-verbose 			?= 0
-P_STALL  			?= 0.0
-DEBUG    			?= 1
+target        ?= verilator
+gui           ?= 0
+verbose       ?= 0
+P_STALL       ?= 0.0
+DEBUG         ?= 1
 OPOPE_COMPLEX ?= 0
 
 # Included makefrags
