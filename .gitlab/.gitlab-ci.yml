@@ -18,10 +18,16 @@ stages:
 # Sets up the Python environment and links necessary dependencies
 init:
   stage: init
-  extends: .base
   script:
-    - make bender
-    - which riscv32-unknown-elf-gcc
+    # Set InstallDir to match Memora's expectation
+    - export InstallDir="$CI_PROJECT_DIR/install"
+    - make bender InstallDir=$InstallDir
+    
+    # Create version file
+    - mkdir -p sw/toolchain
+    - echo "v5.034" > sw/toolchain/verilator.version
+    
+    # Memora config (now matches)
     - |
       cat > /tmp/memora.yml << 'EOF'
       cache_root_dir: /home/gitlabci/caches/memora
@@ -32,19 +38,15 @@ init:
           outputs:
             - install/verilator
       EOF
-    - |
-      if ! $CI_PROJECT_DIR/util/memora_retry.sh lookup verilator --cfg /tmp/memora.yml; then
-        export VERILATOR_CI="--disable-defenv"
-        export PYTHON3=$(which python3)
-        make verilator
-        $CI_PROJECT_DIR/util/memora_retry.sh insert verilator --cfg /tmp/memora.yml
-      fi
+    
+    # Get from cache
+    - $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator --cfg /tmp/memora.yml
+    - export PATH=$PWD/install/verilator/bin:$PATH
     - source scripts/setup-py.sh
   artifacts:
     paths:
       - ./golden-model/venv
-      - ./vendor
-      - ./install/verilator
+      - ./install  # Changed from ./vendor
 
 # --- Stage: Build ---
 # Compiles the hardware (RTL) so it doesn't have to be rebuilt for every test
