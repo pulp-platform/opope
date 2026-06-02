@@ -19,39 +19,41 @@ stages:
 init:
   stage: init
   script:
-    - git config user.email "ci@example.com"
-    - git config user.name "CI Bot"
-    
+    # Method 1: Copy from Spatz's build directory (fastest)
     - |
-      cat > Memora.yml << 'EOF'
-      cache_root_dir: /home/gitlabci/caches/memora
-      artifacts:
-        verilator:
-          inputs:
-            - sw/toolchain/verilator.version
-          outputs:
-            - install/verilator
-      EOF
+      SPATZ_VERILATOR=$(find /scratch2/gitlabci/builds -path "*/github-mirror/spatz/install/verilator" -type d 2>/dev/null | head -1)
+      if [ -n "$SPATZ_VERILATOR" ] && [ -f "$SPATZ_VERILATOR/bin/verilator" ]; then
+        echo "Copying Verilator from Spatz build: $SPATZ_VERILATOR"
+        mkdir -p install
+        cp -r "$SPATZ_VERILATOR" install/
+        echo "Verilator copied successfully"
+      fi
     
-    - mkdir -p sw/toolchain
-    - echo "v5.034" > sw/toolchain/verilator.version
-    - git add Memora.yml sw/toolchain/verilator.version
-    - git commit -m "Add Memora config for CI" || true
+    # Method 2: If that fails, copy from Memora cache
+    - |
+      if [ ! -f install/verilator/bin/verilator ]; then
+        CACHE_VERILATOR=$(find /home/gitlabci/caches/memora -path "*/verilator/install/verilator" -type d 2>/dev/null | head -1)
+        if [ -n "$CACHE_VERILATOR" ] && [ -f "$CACHE_VERILATOR/bin/verilator" ]; then
+          echo "Copying Verilator from Memora cache: $CACHE_VERILATOR"
+          mkdir -p install
+          cp -r "$CACHE_VERILATOR" install/
+          echo "Verilator copied successfully"
+        fi
+      fi
     
-    # DEBUG: Check what's in the cache directory
-    - ls -la /home/gitlabci/caches/memora/ 2>/dev/null || echo "Cache root doesn't exist"
-    - find /home/gitlabci/caches/memora -name "verilator" -type d 2>/dev/null || echo "No verilator in cache"
+    # Verify it works and create symlink for your Makefile
+    - |
+      if [ -f install/verilator/bin/verilator ]; then
+        mkdir -p vendor/install
+        ln -sf $CI_PROJECT_DIR/install/verilator vendor/install/verilator
+        export PATH=$PWD/vendor/install/verilator/bin:$PATH
+        verilator --version
+      else
+        echo "ERROR: Could not find Verilator anywhere"
+        exit 1
+      fi
     
-    # Check if Spatz's cache is accessible (fixed the wildcard)
-    - ls -la /scratch2/gitlabci/builds/ 2>/dev/null || echo "Builds directory not accessible"
-    - find /scratch2/gitlabci/builds -path "*/github-mirror/spatz/install/verilator" -type d 2>/dev/null || echo "Spatz build not found"
-    
-    # Try to get with verbose output (removed --verbose as it might not exist)
-    - $CI_PROJECT_DIR/scripts/memora_retry.sh lookup verilator
-    
-    - $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator
-    
-    # Rest of your script
+    # Continue with your normal setup
     - make bender
     - which riscv32-unknown-elf-gcc
     - source scripts/setup-py.sh
@@ -59,6 +61,7 @@ init:
     paths:
       - ./golden-model/venv
       - ./vendor
+      - ./install
 
 # --- Stage: Build ---
 # Compiles the hardware (RTL) so it doesn't have to be rebuilt for every test
