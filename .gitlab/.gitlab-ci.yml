@@ -22,9 +22,7 @@ init:
     - git config user.email "ci@example.com"
     - git config user.name "CI Bot"
     
-    # Create files
-    - |
-      cat > Memora.yml << 'EOF'
+    - cat > Memora.yml << 'EOF'
       cache_root_dir: /home/gitlabci/caches/memora
       artifacts:
         verilator:
@@ -36,13 +34,22 @@ init:
     
     - mkdir -p sw/toolchain
     - echo "v5.034" > sw/toolchain/verilator.version
-    
-    # Commit them
     - git add Memora.yml sw/toolchain/verilator.version
     - git commit -m "Add Memora config for CI" || true
     
-    # Now Memora can see them
+    # DEBUG: Check what's in the cache directory
+    - ls -la /home/gitlabci/caches/memora/ 2>/dev/null || echo "Cache root doesn't exist"
+    - find /home/gitlabci/caches/memora -name "verilator" -type d 2>/dev/null || echo "No verilator in cache"
+    
+    # Check if Spatz's cache is accessible
+    - ls -la /scratch2/gitlabci/builds/*/github-mirror/spatz/install/verilator 2>/dev/null || echo "Spatz build not found"
+    
+    # Try to get with verbose output
+    - $CI_PROJECT_DIR/scripts/memora_retry.sh lookup verilator --verbose
+    
     - $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator
+    
+    # Rest of your script...
     
     # Link to where your Makefile expects it
     - mkdir -p vendor/install
