@@ -20,8 +20,8 @@ init:
   stage: init
   script:
     # Method 1: Copy from Spatz's build directory (fastest)
+    - SPATZ_VERILATOR=$(find /scratch2/gitlabci/builds -path "*/github-mirror/spatz/install/verilator" -type d 2>/dev/null | head -1) || true
     - |
-      SPATZ_VERILATOR=$(find /scratch2/gitlabci/builds -path "*/github-mirror/spatz/install/verilator" -type d 2>/dev/null | head -1)
       if [ -n "$SPATZ_VERILATOR" ] && [ -f "$SPATZ_VERILATOR/bin/verilator" ]; then
         echo "Copying Verilator from Spatz build: $SPATZ_VERILATOR"
         mkdir -p install
@@ -30,15 +30,13 @@ init:
       fi
     
     # Method 2: If that fails, copy from Memora cache
+    - CACHE_VERILATOR=$(find /home/gitlabci/caches/memora -path "*/verilator/install/verilator" -type d 2>/dev/null | head -1) || true
     - |
-      if [ ! -f install/verilator/bin/verilator ]; then
-        CACHE_VERILATOR=$(find /home/gitlabci/caches/memora -path "*/verilator/install/verilator" -type d 2>/dev/null | head -1)
-        if [ -n "$CACHE_VERILATOR" ] && [ -f "$CACHE_VERILATOR/bin/verilator" ]; then
-          echo "Copying Verilator from Memora cache: $CACHE_VERILATOR"
-          mkdir -p install
-          cp -r "$CACHE_VERILATOR" install/
-          echo "Verilator copied successfully"
-        fi
+      if [ ! -f install/verilator/bin/verilator ] && [ -n "$CACHE_VERILATOR" ] && [ -f "$CACHE_VERILATOR/bin/verilator" ]; then
+        echo "Copying Verilator from Memora cache: $CACHE_VERILATOR"
+        mkdir -p install
+        cp -r "$CACHE_VERILATOR" install/
+        echo "Verilator copied successfully"
       fi
     
     # Verify it works and create symlink for your Makefile
@@ -61,7 +59,7 @@ init:
     - export PIP_USER=false
     
     # Now run the setup script
-    - source scripts/setup-py.sh
+    - bash scripts/setup-py.sh
     
     # Verify the venv works
     - source golden-model/venv/bin/activate
