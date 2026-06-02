@@ -80,9 +80,20 @@ init:
   stage: build
   dependencies:
     - init
-  script:
-    - export PATH=$PWD/install/verilator/bin:$PATH
+  before_script:
+    # Make sure verilator is in the expected location
+    - |
+      if [ -d install/verilator ]; then
+        mkdir -p vendor/install
+        cp -r install/verilator vendor/install/
+      fi
+    
+    # Set PATH
+    - export PATH=$CI_PROJECT_DIR/vendor/install/verilator/bin:$PATH
+    - verilator --version
+    
     - which riscv32-unknown-elf-gcc
+  script:
     - make synth-ips target=verilator
     - make hw-build target=verilator
   artifacts:
