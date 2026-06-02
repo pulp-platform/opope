@@ -19,17 +19,12 @@ stages:
 init:
   stage: init
   script:
-    # Set InstallDir to match Memora's expectation
-    - export InstallDir="$CI_PROJECT_DIR/install"
-    - make bender InstallDir=$InstallDir
+    - make bender
+    - which riscv32-unknown-elf-gcc
     
-    # Create version file
-    - mkdir -p sw/toolchain
-    - echo "v5.034" > sw/toolchain/verilator.version
-    
-    # Memora config (now matches)
+    # Create Memora.yml matching Spatz's structure
     - |
-      cat > /tmp/memora.yml << 'EOF'
+      cat > Memora.yml << 'EOF'
       cache_root_dir: /home/gitlabci/caches/memora
       artifacts:
         verilator:
@@ -39,14 +34,30 @@ init:
             - install/verilator
       EOF
     
-    # Get from cache
-    - $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator --cfg /tmp/memora.yml
-    - export PATH=$PWD/install/verilator/bin:$PATH
+    # Create version file (same path as Spatz)
+    - mkdir -p sw/toolchain
+    - echo "v5.034" > sw/toolchain/verilator.version
+    
+    # Get Verilator from shared cache
+    - $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator
+    
+    # Link to where your Makefile expects it
+    - mkdir -p vendor/install
+    - ln -sf $CI_PROJECT_DIR/install/verilator vendor/install/verilator
+    - export PATH=$PWD/vendor/install/verilator/bin:$PATH
+    
+    # Verify it works
+    - verilator --version
+    
+    # Your normal setup
     - source scripts/setup-py.sh
   artifacts:
     paths:
       - ./golden-model/venv
-      - ./install  # Changed from ./vendor
+      - ./vendor
+      - ./install
+      - ./Memora.yml
+      - ./sw/toolchain/verilator.version
 
 # --- Stage: Build ---
 # Compiles the hardware (RTL) so it doesn't have to be rebuilt for every test
