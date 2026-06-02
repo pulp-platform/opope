@@ -10,6 +10,8 @@
     expire_in: 1 week
 
 stages:
+  - init
+  - build
   - test
 
 # --- Stage: Init ---
