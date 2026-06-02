@@ -19,10 +19,10 @@ stages:
 init:
   stage: init
   script:
-    - make bender
-    - which riscv32-unknown-elf-gcc
+    - git config user.email "ci@example.com"
+    - git config user.name "CI Bot"
     
-    # Create Memora.yml matching Spatz's structure
+    # Create files
     - |
       cat > Memora.yml << 'EOF'
       cache_root_dir: /home/gitlabci/caches/memora
@@ -34,11 +34,14 @@ init:
             - install/verilator
       EOF
     
-    # Create version file (same path as Spatz)
     - mkdir -p sw/toolchain
     - echo "v5.034" > sw/toolchain/verilator.version
     
-    # Get Verilator from shared cache
+    # Commit them
+    - git add Memora.yml sw/toolchain/verilator.version
+    - git commit -m "Add Memora config for CI" || true
+    
+    # Now Memora can see them
     - $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator
     
     # Link to where your Makefile expects it
