@@ -90,36 +90,33 @@ opope-build-hwpe:
   extends: .base
   stage: test
   before_script:
-    - which python3
-    - python3 --version
-    - which python3.6
+    # Use Python 3.6 from system
+    - export PATH=/usr/bin:$PATH
     - python3.6 --version
-    - which python3.11
-    - python3.11 --version
-    - python3 -c "import sys; print('\n'.join(sys.path))"
-    - python3 -c "import site; print(site.getsitepackages())"
-    - strings /lib64/libstdc++.so.6 | grep GLIBCXX | tail
-    - python3 -m venv venv
-    - source venv/bin/activate
-    - pip install --upgrade pip
-    - pip install numpy
-    - pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-    - python -c "import numpy; print(numpy.__file__)"
-    - python -c "import torch; print(torch.__version__)"
+    
+    # Install pip for python3.6
+    - python3.6 -m ensurepip --upgrade || true
+    - python3.6 -m pip install --user --upgrade pip
+    
+    # Install packages (older versions compatible with Python 3.6)
+    - python3.6 -m pip install --user numpy==1.19.5
+    - python3.6 -m pip install --user torch==1.10.0 --index-url https://download.pytorch.org/whl/cpu
+    
+    # Verify
+    - python3.6 -c "import torch; print(f'PyTorch {torch.__version__} OK')"
   script:
     # Setup Verilator path
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
     - verilator --version
     - which riscv32-unknown-elf-gcc
     
-    # Generate golden model reference (no venv needed)
+    # Generate golden model
     - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
     
-    # Build the software
+    # Build software
     - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE}
     
-    # Run the simulation
+    # Run simulation
     - make hw-run target=verilator InstallDir=$CI_PROJECT_DIR/install 2>&1 | tee ./target/sim/verilator/transcript
     
     # Validation
