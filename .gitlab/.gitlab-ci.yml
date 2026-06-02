@@ -92,7 +92,10 @@ opope-build-hwpe:
   before_script:
     # Install Python dependencies once per job (GitLab caches these)
     - pip3 install --user --upgrade pip
-    - pip3 install --user numpy torch
+    - pip3 install --user numpy
+    - pip3 install --user torch --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
+    # Verify installation
+    - python3 -c "import torch; print(f'PyTorch {torch.__version__} installed successfully')"
   script:
     # Setup Verilator path
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
