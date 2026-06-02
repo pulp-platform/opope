@@ -90,19 +90,19 @@ opope-build-hwpe:
   extends: .base
   stage: test
   before_script:
-    # Use local temp directory (not NFS)
-    - export PYTHONUSERBASE=/tmp/pip_${CI_JOB_ID}
-    - mkdir -p $PYTHONUSERBASE
-    
-    # Install to local temp
-    - python3 -m pip install --user --no-cache-dir numpy torch --index-url https://download.pytorch.org/whl/cpu
-    
-    # Add to path
-    - export PATH=$PYTHONUSERBASE/bin:$PATH
-    - export PYTHONPATH=$PYTHONUSERBASE/lib/python3.14/site-packages:$PYTHONPATH
-    
-    # Verify
-    - python3 -c "import torch; print('OK')"
+    - which python3
+    - python3 --version
+    - python3 -c "import sys; print('\n'.join(sys.path))"
+    - python3 -c "import site; print(site.getsitepackages())"
+    - strings /lib64/libstdc++.so.6 | grep GLIBCXX | tail
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install numpy
+    - pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+    - python -c "import numpy; print(numpy.__file__)"
+    - python -c "import torch; print(torch.__version__)"
   script:
     # Setup Verilator path
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
