@@ -56,8 +56,7 @@ init:
     # Continue with your normal setup
     - make bender
     - which riscv32-unknown-elf-gcc
-    - source scripts/setup-py.sh
-    
+
     # Fix pip to not use --user
     - export PIP_USER=false
     
