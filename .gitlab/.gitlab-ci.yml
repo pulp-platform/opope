@@ -24,8 +24,9 @@ init:
     - |
       if [ -n "$SPATZ_VERILATOR" ] && [ -f "$SPATZ_VERILATOR/bin/verilator" ]; then
         echo "Copying Verilator from Spatz build: $SPATZ_VERILATOR"
-        mkdir -p install
+        mkdir -p install vendor/install
         cp -r "$SPATZ_VERILATOR" install/
+        cp -r "$SPATZ_VERILATOR" vendor/install/
         echo "Verilator copied successfully"
       fi
     
@@ -34,25 +35,26 @@ init:
     - |
       if [ ! -f install/verilator/bin/verilator ] && [ -n "$CACHE_VERILATOR" ] && [ -f "$CACHE_VERILATOR/bin/verilator" ]; then
         echo "Copying Verilator from Memora cache: $CACHE_VERILATOR"
-        mkdir -p install
+        mkdir -p install vendor/install
         cp -r "$CACHE_VERILATOR" install/
+        cp -r "$CACHE_VERILATOR" vendor/install/
         echo "Verilator copied successfully"
       fi
     
-    # Verify it works and create symlink for your Makefile
+    # Verify it works
     - |
-      if [ -f install/verilator/bin/verilator ]; then
-        mkdir -p vendor/install
-        ln -sf $CI_PROJECT_DIR/install/verilator vendor/install/verilator
+      if [ -f vendor/install/verilator/bin/verilator ]; then
         export PATH=$PWD/vendor/install/verilator/bin:$PATH
         verilator --version
       else
         echo "ERROR: Could not find Verilator anywhere"
+        echo "Tried Spatz path: $SPATZ_VERILATOR"
+        echo "Tried cache path: $CACHE_VERILATOR"
         exit 1
       fi
     
     # Continue with your normal setup
-    - make bender
+    - make bender InstallDir=./install
     - which riscv32-unknown-elf-gcc
 
     # Fix pip to not use --user
@@ -72,28 +74,20 @@ init:
       - ./install
 
 # --- Stage: Build ---
-# Compiles the hardware (RTL) so it doesn't have to be rebuilt for every test
 .opope-build-tpl:
   extends: .base
   stage: build
   dependencies:
     - init
-  before_script:
-    # Make sure verilator is in the expected location
-    - |
-      if [ -d install/verilator ]; then
-        mkdir -p vendor/install
-        cp -r install/verilator vendor/install/
-      fi
-    
-    # Set PATH
+  script:
+    # Verilator should already be in vendor/install from init
     - export PATH=$CI_PROJECT_DIR/vendor/install/verilator/bin:$PATH
     - verilator --version
-    
     - which riscv32-unknown-elf-gcc
-  script:
-    - make synth-ips target=verilator
-    - make hw-build target=verilator
+    
+    # Pass InstallDir to make
+    - make synth-ips target=verilator InstallDir=$CI_PROJECT_DIR/install
+    - make hw-build target=verilator InstallDir=$CI_PROJECT_DIR/install
   artifacts:
     paths:
       - ./.bender
