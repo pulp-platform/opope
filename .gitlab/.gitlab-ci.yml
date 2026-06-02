@@ -10,8 +10,6 @@
     expire_in: 1 week
 
 stages:
-  - init
-  - build
   - test
 
 # --- Stage: Init ---
@@ -91,9 +89,9 @@ opope-build-hwpe:
   stage: test
   before_script:
     # Install Python dependencies once per job (GitLab caches these)
-    - pip3 install --user --upgrade pip
-    - pip3 install --user numpy
-    - pip3 install --user torch --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
+    - python3 -m pip install --user --upgrade pip
+    - python3 -m pip install --user numpy
+    - python3 -m pip install --user torch --index-url https://download.pytorch.org/whl/cpu
   script:
     # Setup Verilator path
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
