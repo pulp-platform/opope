@@ -35,7 +35,7 @@ check_sw:
 addmax: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
 	--txt_dir $(CUR_DIR)/$@/txt;
@@ -43,7 +43,7 @@ addmax: check_sw
 addmin: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
 	--txt_dir $(CUR_DIR)/$@/txt;
@@ -51,7 +51,7 @@ addmin: check_sw
 gemm: check_sw
 	mkdir -p $@/txt;                          							\
 	cd $(CUR_DIR)/$(fp_fmt);                  							\
-	{PYTHON} ./scripts/$@.py                   							\
+	$(PYTHON) ./scripts/$@.py                   							\
 	--m_size $(M) --n_size $(N) --k_size $(K) 							\
 	--inc_dir $(SW)                           							\
 	--txt_dir $(CUR_DIR)/$@/txt --transpose $(transpose);
@@ -59,7 +59,7 @@ gemm: check_sw
 matmul: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
 	--txt_dir $(CUR_DIR)/$@/txt;
@@ -67,7 +67,7 @@ matmul: check_sw
 maxmin: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)/inc                       \
 	--txt_dir $(CUR_DIR)/$@/txt;
@@ -75,7 +75,7 @@ maxmin: check_sw
 minmax: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
 	--txt_dir $(CUR_DIR)/$@/txt;
@@ -83,7 +83,7 @@ minmax: check_sw
 mulmax: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
 	--txt_dir $(CUR_DIR)/$@/txt;
@@ -91,7 +91,7 @@ mulmax: check_sw
 mulmin: check_sw
 	mkdir -p $@/txt;                          \
 	cd $(CUR_DIR)/$(fp_fmt);                  \
-	{PYTHON} ./scripts/$@.py                   \
+	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
 	--txt_dir $(CUR_DIR)/$@/txt;
