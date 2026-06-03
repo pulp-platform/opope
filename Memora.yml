@@ -10,12 +10,14 @@ cache_root_dir: /home/gitlabci/caches/memora
 
 artifacts:
   verilator:
+    inputs:
     outputs:
       - install/verilator
     key:
       - scripts/memora_key_verilator.sh
 
   bender:
+    inputs:
     outputs:
       - install/cargo/bin/bender
     key:
