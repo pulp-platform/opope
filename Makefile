@@ -25,6 +25,7 @@ VerilatorCXX         := g++-11.2.0
 GccInstallDir        := $(InstallDir)/riscv
 Gcc                  ?= $(GccInstallDir)/bin/
 # Bender
+BenderVersion        ?= 0.31.0
 RustupInit           := $(ScriptsDir)/rustup-init.sh
 CargoInstallDir      := $(InstallDir)/cargo
 RustupInstallDir     := $(InstallDir)/rustup
@@ -39,6 +40,13 @@ ARCH       ?= rv
 XLEN       ?= 32
 XTEN       ?= imc
 PYTHON     ?= python3
+# Golden Model
+OP     		?= gemm
+fp_fmt 		?= FP16
+M      		?= 4
+N      		?= 4
+K      		?= 4
+transpose ?= 1
 
 # Configuration Parameters
 target        ?= verilator
@@ -69,28 +77,15 @@ ifeq ($(debug),1)
 	FLAGS += -DDEBUG
 endif
 
-
-# Include directories
-
-# Build implicit rules
-
 #################
 #   Init Repo   #
 #################
 
 init: riscv32-gcc bender verilator
-	source scripts/setup-py.sh
 
 ####################
 #   Golden Model   #
 ####################
-
-OP     		?= gemm
-fp_fmt 		?= FP16
-M      		?= 4
-N      		?= 4
-K      		?= 4
-transpose ?= 1
 
 golden: golden-clean
 	$(MAKE) -C golden-model $(OP) SW=$(SW)/inc M=$(M) N=$(N) K=$(K) fp_fmt=$(fp_fmt) transpose=$(transpose)
@@ -207,7 +202,7 @@ $(CargoInstallDir)/bin/bender:
 	mkdir -p $(InstallDir)
 	export CARGO_HOME=$(CargoInstallDir) && export RUSTUP_HOME=$(RustupInstallDir) && \
 	chmod +x $(RustupInit); source $(RustupInit) -y && \
-	$(Cargo) install bender
+	$(Cargo) install bender  --version $(BenderVersion)
 	rm -rf $(RustupInit)
 
 ###############
