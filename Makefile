@@ -221,15 +221,15 @@ target/sim/toolchain/verilator:
 target/sim/toolchain/help2man:
 	mkdir -p target/sim/toolchain/help2man
 	cd target/sim/toolchain/help2man && \
-		wget -c https://ftp.gnu.org/gnu/help2man/help2man-1.49.3.tar.xz && \
+		curl -fLO https://ftp.gnu.org/gnu/help2man/help2man-1.49.3.tar.xz && \
 		tar xf help2man-1.49.3.tar.xz
 
 verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
 	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
 	cd $<; unset VERILATOR_ROOT; \
-	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VERILATOR_INSTALL_DIR) $(VERILATOR_CI) && \
-	PATH=$(PATH):$(VERILATOR_INSTALL_DIR)/bin make -j4 && make install
+	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
+	PATH=$(PATH):$(VerilatorInstallDir)/bin make -j4 && make install
 
 #############
 #  Helpers  #
