@@ -104,7 +104,7 @@ opope-build-hwpe:
     - sed -i 's|python3 |python3.6 |' golden-model/Makefile
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
     - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
-    - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE}
+    - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE} GccInstallDir=$(dirname $(dirname $(which riscv32-unknown-elf-gcc)))
     - make hw-run target=verilator InstallDir=$CI_PROJECT_DIR/install 2>&1 | tee ./target/sim/verilator/transcript
     - grep -q "Success!" ./target/sim/verilator/transcript
     - if grep -q "Fail!" ./target/sim/verilator/transcript; then exit 1; fi
