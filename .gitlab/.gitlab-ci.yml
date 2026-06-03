@@ -90,22 +90,21 @@ opope-build-hwpe:
   extends: .base
   stage: test
   before_script:
-    # Use Python 3.6 from system
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
     
-    # Install pip for python3.6
-    - python3.6 -m ensurepip --upgrade || true
-    - python3.6 -m pip install --user --upgrade pip
+    # Create venv in a reliable location
+    - python3.6 -m venv venv
+    - source venv/bin/activate
     
-    # Install packages (older versions compatible with Python 3.6)
-    - python3.6 -m pip install --user numpy==1.19.5
-    - python3.6 -m pip install --user torch==1.10.0 --index-url https://download.pytorch.org/whl/cpu
+    # Install deps
+    - pip install --upgrade pip setuptools wheel
+    - pip install numpy==1.19.5
+    - pip install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
     
-    # Verify
-    - python3.6 -c "import torch; print(f'PyTorch {torch.__version__} OK')"
+    - python -c "import torch; print(f'PyTorch {torch.__version__} OK')"
   script:
-    # Setup Verilator path
+    - source venv/bin/activate
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
     - verilator --version
     - which riscv32-unknown-elf-gcc
