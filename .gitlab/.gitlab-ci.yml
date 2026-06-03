@@ -92,28 +92,23 @@ opope-build-hwpe:
   before_script:
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
-    
     - python3.6 -m pip install --user --upgrade pip setuptools wheel
     - python3.6 -m pip install --user numpy==1.19.5
     - python3.6 -m pip install --user --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-    
     - python3.6 -c "import torch; print(f'PyTorch {torch.__version__} OK')"
+
   script:
-    - source venv/bin/activate
+    # Patch Makefile to use python3.6 directly, no venv activation
+    - sed -i 's|source ./bin/activate;|# venv skipped;|' golden-model/Makefile
+    - sed -i 's|cd $(PENV);|# cd $(PENV);|' golden-model/Makefile
+    - sed -i 's|deactivate|# deactivate|' golden-model/Makefile
+    - sed -i 's|python3 |python3.6 |' golden-model/Makefile
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
     - verilator --version
     - which riscv32-unknown-elf-gcc
-    
-    # Generate golden model
     - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
-    
-    # Build software
     - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE}
-    
-    # Run simulation
     - make hw-run target=verilator InstallDir=$CI_PROJECT_DIR/install 2>&1 | tee ./target/sim/verilator/transcript
-    
-    # Validation
     - grep -q "Success!" ./target/sim/verilator/transcript
     - if grep -q "Fail!" ./target/sim/verilator/transcript; then exit 1; fi
 
