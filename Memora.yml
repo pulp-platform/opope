@@ -9,13 +9,13 @@
 cache_root_dir: /home/gitlabci/caches/memora
 
 artifacts:
-  - name: verilator
+  verilator:
     outputs:
       - install/verilator
     key:
-      - scripts/memora_key_verilator.sh   # script that produces the cache key
+      - scripts/memora_key_verilator.sh
 
-  - name: bender
+  bender:
     outputs:
       - install/cargo/bin/bender
     key:
