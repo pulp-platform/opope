@@ -12,6 +12,7 @@
 .opope-env:
   before_script:
     - export GCC_ROOT="$(dirname "$(dirname "$(which riscv32-unknown-elf-gcc)")")"
+    - export PATH="$CI_PROJECT_DIR/install/cargo/bin:$PATH"
   variables:
     INSTALL_DIR: "$CI_PROJECT_DIR/install"
     TRANSCRIPT: "$CI_PROJECT_DIR/target/sim/verilator/transcript"
