@@ -141,7 +141,7 @@ complex-test:
   dependencies:
     - opope-build-hwpe
   variables:
-    COMPLEX_MODE: "1"
+    COMPLEX_MODE: "0"
   parallel:
     matrix:
       - { OP: gemm, M: 8, N: 8, K: 8, FMT: FP16 }
