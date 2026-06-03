@@ -92,11 +92,12 @@ opope-build-hwpe:
   before_script:
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
-    - rm -rf venv
-    - python3.6 -m venv venv
-    - venv/bin/python -m pip install numpy==1.19.5
-    - venv/bin/python -m pip install --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-    - venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__} OK')"
+    
+    - python3.6 -m pip install --user --upgrade pip setuptools wheel
+    - python3.6 -m pip install --user numpy==1.19.5
+    - python3.6 -m pip install --user --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    
+    - python3.6 -c "import torch; print(f'PyTorch {torch.__version__} OK')"
   script:
     - source venv/bin/activate
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
