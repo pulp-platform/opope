@@ -52,14 +52,8 @@ init:
     
     # Build bender and other tools
     - make bender InstallDir=./install
-    - which riscv32-unknown-elf-gcc
-    
-    # NO Python venv setup here anymore
     - export PATH=/usr/bin:$PATH
-    - python3.6 --version
-    - python3.6 -m pip install --user setuptools wheel
-    - python3.6 -m pip install --user numpy
-    - python3.6 -m pip install --user torch
+    - python3.6 -m pip install --user numpy torch
   artifacts:
     paths:
       - ./vendor
@@ -72,12 +66,6 @@ init:
   dependencies:
     - init
   script:
-    # Setup Verilator path
-    - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
-    - verilator --version
-    - which riscv32-unknown-elf-gcc
-    
-    # Build hardware
     - make synth-ips target=verilator InstallDir=$CI_PROJECT_DIR/install
     - make hw-build target=verilator InstallDir=$CI_PROJECT_DIR/install
   artifacts:
@@ -97,12 +85,10 @@ opope-build-hwpe:
   dependencies:
     - init
   script:
-    # Patch Makefile to use python3.6 directly, no venv activation
     - sed -i 's|source ./bin/activate;|# venv skipped;|' golden-model/Makefile
     - sed -i 's|cd $(PENV);|# cd $(PENV);|' golden-model/Makefile
     - sed -i 's|deactivate|# deactivate|' golden-model/Makefile
     - sed -i 's|python3 |python3.6 |' golden-model/Makefile
-    - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
     - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
     - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE} GccInstallDir=$(dirname $(dirname $(which riscv32-unknown-elf-gcc)))
     - make hw-run target=verilator InstallDir=$CI_PROJECT_DIR/install 2>&1 | tee ./target/sim/verilator/transcript
