@@ -226,8 +226,10 @@ verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
 	rm -rf $(VerilatorInstallDir)
 	cd target/sim/toolchain/help2man/help2man-1.49.3 && \
-		CC=gcc CXX=g++ ./configure --prefix=$(VerilatorInstallDir) && \
-		make && make install
+			CC=gcc CXX=g++ \
+			CFLAGS="-isystem /usr/pack/gcc-11.2.0-af/linux-x64/lib/gcc/x86_64-pc-linux-gnu/11.2.0/include" \
+			./configure --prefix=$(VerilatorInstallDir) && \
+			make && make install
 	cd $<; unset VERILATOR_ROOT;                             \
 		autoconf &&                                      \
 		CC=$(VerilatorCC) CXX=$(VerilatorCXX)            \

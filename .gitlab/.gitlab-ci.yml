@@ -29,6 +29,7 @@ init:
     - .opope-env
   script:
     # Sanitize PATH: prevent cross-compiler from polluting host builds
+    - memora --help
     - export PATH=$(echo $PATH | tr ':' '\n' | grep -v riscv | tr '\n' ':')
 
     # Restore Verilator from Memora cache or build from source
