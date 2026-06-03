@@ -28,35 +28,31 @@ init:
     - .base
     - .opope-env
   script:
-    # Sanitize PATH: prevent cross-compiler from polluting host builds
     - export PATH=$(echo $PATH | tr ':' '\n' | grep -v riscv | tr '\n' ':')
 
-    # Restore Verilator from Memora cache or build from source
     - |
       if ! $CI_PROJECT_DIR/scripts/memora_retry.sh lookup verilator; then
         export VERILATOR_CI="--disable-defenv"
-        export PYTHON3=$(which python3)
-        make verilator
+        make verilator InstallDir=$INSTALL_DIR || true
+        cat $CI_PROJECT_DIR/target/sim/toolchain/help2man/config.log
         $CI_PROJECT_DIR/scripts/memora_retry.sh insert verilator
+      else
+        $CI_PROJECT_DIR/scripts/memora_retry.sh get verilator
       fi
 
     - |
-      if ! memora get bender; then
-        echo "Cache miss — building Bender from source"
+      if ! $CI_PROJECT_DIR/scripts/memora_retry.sh lookup bender; then
         make bender InstallDir=$INSTALL_DIR
-        memora put bender
+        $CI_PROJECT_DIR/scripts/memora_retry.sh insert bender
+      else
+        $CI_PROJECT_DIR/scripts/memora_retry.sh get bender
       fi
 
-    # Propagate Verilator to vendor path (expected by downstream jobs)
     - mkdir -p vendor/install
     - cp -r $INSTALL_DIR/verilator vendor/install/verilator
-
-    # Verify
     - export PATH=$INSTALL_DIR/verilator/bin:$PATH
     - verilator --version
     - $INSTALL_DIR/cargo/bin/bender --version
-
-    # Python deps
     - python3.6 -m pip install --user numpy torch
 
   artifacts:

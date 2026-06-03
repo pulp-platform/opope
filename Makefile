@@ -226,10 +226,19 @@ target/sim/toolchain/help2man:
 
 verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
-	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
+	rm -rf $(VerilatorInstallDir)
+	cd target/sim/toolchain/help2man/help2man-1.49.3 && \
+		CC=gcc CXX=g++ \
+		CFLAGS="-isystem $(GCC_SYSINCLUDE)" \
+		./configure --prefix=$(VerilatorInstallDir) && \
+		make && make install
 	cd $<; unset VERILATOR_ROOT; \
-	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
-	PATH=$(PATH):$(VerilatorInstallDir)/bin make -j4 && make install
+		autoconf && \
+		CC=$(VerilatorCC) CXX=$(VerilatorCXX) \
+		CFLAGS="-isystem $(GCC_SYSINCLUDE)" \
+		CXXFLAGS="-isystem $(GCC_SYSINCLUDE)" \
+		./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
+		PATH=$(PATH):$(VerilatorInstallDir)/bin make -j4 && make install
 
 #############
 #  Helpers  #
