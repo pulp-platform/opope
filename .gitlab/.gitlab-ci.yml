@@ -35,7 +35,8 @@ init:
     - |
       if ! memora get verilator; then
         echo "Cache miss — building Verilator from source"
-        make verilator InstallDir=$INSTALL_DIR && cat $CI_PROJECT_DIR/target/sim/toolchain/help2man/help2man-1.49.3/config.log
+        make verilator InstallDir=$INSTALL_DIR || true
+        cat $CI_PROJECT_DIR/target/sim/toolchain/help2man/help2man-1.49.3/config.log || true
         memora put verilator
       fi
 
