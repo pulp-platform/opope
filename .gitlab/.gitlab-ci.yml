@@ -94,8 +94,6 @@ opope-build-hwpe:
     - python3.6 --version
     - rm -rf venv
     - python3.6 -m venv venv
-    
-    - venv/bin/python -m pip install --upgrade pip setuptools wheel
     - venv/bin/python -m pip install numpy==1.19.5
     - venv/bin/python -m pip install --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
     - venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__} OK')"
