@@ -55,6 +55,11 @@ init:
     - which riscv32-unknown-elf-gcc
     
     # NO Python venv setup here anymore
+    - export PATH=/usr/bin:$PATH
+    - python3.6 --version
+    - python3.6 -m pip install --user setuptools wheel
+    - python3.6 -m pip install --user numpy==1.19.5
+    - python3.6 -m pip install --user --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
   artifacts:
     paths:
       - ./vendor
@@ -89,12 +94,8 @@ opope-build-hwpe:
 .opope-sim-tpl:
   extends: .base
   stage: test
-  before_script:
-    - export PATH=/usr/bin:$PATH
-    - python3.6 --version
-    - python3.6 -m pip install --user setuptools wheel
-    - python3.6 -m pip install --user numpy==1.19.5
-    - python3.6 -m pip install --user --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+  dependencies:
+    - init
   script:
     # Patch Makefile to use python3.6 directly, no venv activation
     - sed -i 's|source ./bin/activate;|# venv skipped;|' golden-model/Makefile
