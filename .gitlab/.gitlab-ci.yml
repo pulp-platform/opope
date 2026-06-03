@@ -92,11 +92,10 @@ opope-build-hwpe:
   before_script:
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
-    - python3.6 -m pip install --user --upgrade pip setuptools wheel
+    # DON'T upgrade pip — system pip 9.0.3 is broken for --user self-upgrade
     - python3.6 -m pip install --user numpy==1.19.5
     - python3.6 -m pip install --user --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
     - python3.6 -c "import torch; print(f'PyTorch {torch.__version__} OK')"
-
   script:
     # Patch Makefile to use python3.6 directly, no venv activation
     - sed -i 's|source ./bin/activate;|# venv skipped;|' golden-model/Makefile
