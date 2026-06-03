@@ -101,7 +101,7 @@ opope-build-hwpe:
     - sed -i 's|deactivate|# deactivate|' golden-model/Makefile
     - sed -i 's|python3 |python3.6 |' golden-model/Makefile
     - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
-    - make sw-all OPOPE_COMPLEX=${COMPLEX_MODE} GccInstallDir=$(GCC_ROOT)
+    - make sw-all OPOPE_COMPLEX=${COMPLEX_MODE} GccInstallDir=${GCC_ROOT}
     - make hw-run target=verilator InstallDir=${INSTALL_DIR} 2>&1 | tee ${TRANSCRIPT}
     - grep -q "Success!" ${TRANSCRIPT}
     - if grep -q "Fail!" ${TRANSCRIPT}; then exit 1; fi
