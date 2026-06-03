@@ -6,15 +6,17 @@
 #
 # Memora manifest
 
+cache_root_dir: /home/gitlabci/caches/memora
+
 artifacts:
   - name: verilator
-    files:
+    outputs:
       - install/verilator
     key:
       - scripts/memora_key_verilator.sh   # script that produces the cache key
 
   - name: bender
-    files:
+    outputs:
       - install/cargo/bin/bender
     key:
       - scripts/memora_key_bender.sh

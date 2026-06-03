@@ -33,9 +33,12 @@ init:
 
     # Restore Verilator from Memora cache or build from source
     - |
-      if ! memora -C $CI_PROJECT_DIR get verilator; then
-        make verilator InstallDir=$INSTALL_DIR
-        memora -C $CI_PROJECT_DIR insert verilator
+      if ! $CI_PROJECT_DIR/scripts/memora_retry.sh lookup verilator; then
+        export VERILATOR_CI="--disable-defenv"
+        # Verilator requires a more recent version of python than the default one.
+        export PYTHON3=$(which python3)
+        make sw/toolchain/verilator verilator
+        $CI_PROJECT_DIR/scripts/memora_retry.sh insert verilator
       fi
 
     - |
