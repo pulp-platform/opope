@@ -59,11 +59,11 @@ init:
     - python3.6 --version
     - python3.6 -m pip install --user setuptools wheel
     - python3.6 -m pip install --user numpy==1.19.5
-    - python3.6 -m pip install --user --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    - python3.6 -m pip install --user torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
   artifacts:
-    paths:
-      - ./vendor
-      - ./install
+  paths:
+    - ./vendor
+    - ./install
 
 # --- Stage: Build ---
 .opope-build-tpl:
