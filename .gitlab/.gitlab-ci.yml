@@ -24,43 +24,41 @@ stages:
 # --- Stage: Init ---
 init:
   stage: init
+  extends:
+    - .base
+    - .opope-env
   script:
-    # Copy Verilator from Spatz's build directory
-    - SPATZ_VERILATOR=$(find /scratch2/gitlabci/builds -path "*/github-mirror/spatz/install/verilator" -type d 2>/dev/null | head -1) || true
+    # Sanitize PATH: prevent cross-compiler from polluting host builds
+    - export PATH=$(echo $PATH | tr ':' '\n' | grep -v riscv | tr '\n' ':')
+
+    # Restore Verilator from Memora cache or build from source
     - |
-      if [ -n "$SPATZ_VERILATOR" ] && [ -f "$SPATZ_VERILATOR/bin/verilator" ]; then
-        echo "Copying Verilator from Spatz build: $SPATZ_VERILATOR"
-        mkdir -p install vendor/install
-        cp -r "$SPATZ_VERILATOR" install/
-        cp -r "$SPATZ_VERILATOR" vendor/install/
-        echo "Verilator copied successfully"
+      if ! memora restore verilator; then
+        echo "Cache miss — building Verilator from source"
+        make verilator InstallDir=$INSTALL_DIR
+        memora store verilator
       fi
-    
-    # Method 2: If that fails, copy from Memora cache
-    - CACHE_VERILATOR=$(find /home/gitlabci/caches/memora -path "*/verilator/install/verilator" -type d 2>/dev/null | head -1) || true
+
+    # Restore Bender from Memora cache or build from source
     - |
-      if [ ! -f install/verilator/bin/verilator ] && [ -n "$CACHE_VERILATOR" ] && [ -f "$CACHE_VERILATOR/bin/verilator" ]; then
-        echo "Copying Verilator from Memora cache: $CACHE_VERILATOR"
-        mkdir -p install vendor/install
-        cp -r "$CACHE_VERILATOR" install/
-        cp -r "$CACHE_VERILATOR" vendor/install/
-        echo "Verilator copied successfully"
+      if ! memora restore bender; then
+        echo "Cache miss — building Bender from source"
+        make bender InstallDir=$INSTALL_DIR
+        memora store bender
       fi
-    
-    # Verify it works
-    - |
-      if [ -f vendor/install/verilator/bin/verilator ]; then
-        export PATH=$PWD/vendor/install/verilator/bin:$PATH
-        verilator --version
-      else
-        echo "ERROR: Could not find Verilator"
-        exit 1
-      fi
-    
-    # Build bender and other tools
-    - make bender InstallDir=./install
-    - export PATH=/usr/bin:$PATH
+
+    # Propagate Verilator to vendor path (expected by downstream jobs)
+    - mkdir -p vendor/install
+    - cp -r $INSTALL_DIR/verilator vendor/install/verilator
+
+    # Verify
+    - export PATH=$INSTALL_DIR/verilator/bin:$PATH
+    - verilator --version
+    - $INSTALL_DIR/cargo/bin/bender --version
+
+    # Python deps
     - python3.6 -m pip install --user numpy torch
+
   artifacts:
     paths:
       - ./vendor

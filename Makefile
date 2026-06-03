@@ -25,6 +25,7 @@ VerilatorCXX         := g++-11.2.0
 GccInstallDir        := $(InstallDir)/riscv
 Gcc                  ?= $(GccInstallDir)/bin/
 # Bender
+BenderVersion        ?= 0.31.0
 RustupInit           := $(ScriptsDir)/rustup-init.sh
 CargoInstallDir      := $(InstallDir)/cargo
 RustupInstallDir     := $(InstallDir)/rustup
@@ -39,6 +40,13 @@ ARCH       ?= rv
 XLEN       ?= 32
 XTEN       ?= imc
 PYTHON     ?= python3
+# Golden Model
+OP     		?= gemm
+fp_fmt 		?= FP16
+M      		?= 4
+N      		?= 4
+K      		?= 4
+transpose ?= 1
 
 # Configuration Parameters
 target        ?= verilator
@@ -69,28 +77,15 @@ ifeq ($(debug),1)
 	FLAGS += -DDEBUG
 endif
 
-
-# Include directories
-
-# Build implicit rules
-
 #################
 #   Init Repo   #
 #################
 
 init: riscv32-gcc bender verilator
-	source scripts/setup-py.sh
 
 ####################
 #   Golden Model   #
 ####################
-
-OP     		?= gemm
-fp_fmt 		?= FP16
-M      		?= 4
-N      		?= 4
-K      		?= 4
-transpose ?= 1
 
 golden: golden-clean
 	$(MAKE) -C golden-model $(OP) SW=$(SW)/inc M=$(M) N=$(N) K=$(K) fp_fmt=$(fp_fmt) transpose=$(transpose)
@@ -207,7 +202,7 @@ $(CargoInstallDir)/bin/bender:
 	mkdir -p $(InstallDir)
 	export CARGO_HOME=$(CargoInstallDir) && export RUSTUP_HOME=$(RustupInstallDir) && \
 	chmod +x $(RustupInit); source $(RustupInit) -y && \
-	$(Cargo) install bender
+	$(Cargo) install bender --version $(BenderVersion)
 	rm -rf $(RustupInit)
 
 ###############
@@ -217,19 +212,34 @@ $(CargoInstallDir)/bin/bender:
 target/sim/toolchain/verilator:
 	mkdir -p target/sim/toolchain
 	cd target/sim/toolchain && git clone https://github.com/verilator/verilator.git
-	cd target/sim/toolchain/verilator &&                     \
-		git checkout $(VerilatorVersion) && \
+	cd target/sim/toolchain/verilator &&          \
+		git checkout $(VerilatorVersion) &&   \
 		git submodule update --init --recursive --jobs=8 .
 
 target/sim/toolchain/help2man:
 	mkdir -p target/sim/toolchain/help2man
-	cd target/sim/toolchain/help2man && wget -c https://ftp.gnu.org/gnu/help2man/help2man-1.49.3.tar.xz
-	cd target/sim/toolchain/help2man && tar xf help2man-1.49.3.tar.xz
+	cd target/sim/toolchain/help2man && \
+		wget -c https://ftp.gnu.org/gnu/help2man/help2man-1.49.3.tar.xz && \
+		tar xf help2man-1.49.3.tar.xz
 
 verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
 	rm -rf $(VerilatorInstallDir)
-	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
-	cd $<; unset VERILATOR_ROOT; \
-	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
-	PATH=$(PATH):$(VerilatorInstallDir)/bin make -j4 && make install
+	cd target/sim/toolchain/help2man/help2man-1.49.3 && \
+		CC=gcc CXX=g++ ./configure --prefix=$(VerilatorInstallDir) && \
+		make && make install
+	cd $<; unset VERILATOR_ROOT;                             \
+		autoconf &&                                      \
+		CC=$(VerilatorCC) CXX=$(VerilatorCXX)            \
+		./configure --prefix=$(VerilatorInstallDir)      \
+		$(VERILATOR_CI) &&                               \
+		PATH=$(PATH):$(VerilatorInstallDir)/bin          \
+		make -j4 && make install
+
+
+#############
+#  Helpers  #
+#############
+
+print-%:
+	@echo $($*)
