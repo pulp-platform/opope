@@ -97,12 +97,6 @@ For external users — fetches and installs open-source dependencies (RISC-V GCC
 make init
 ```
 
-For IIS users — symlinks pre-installed cluster tools:
-
-```
-make init-iis
-```
-
 ### 2. Generate a Golden Reference
 
 Before simulating, generate the software reference output for your target matrix dimensions and precision. For example, a 32×32×32 GEMM in FP16:

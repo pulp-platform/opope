@@ -1,5 +1,5 @@
 # Copyright 2025 ETH Zurich and University of Bologna.
-# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# Licensed under the Apache License, Version 2.0, see LICENSE_SW for details.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
@@ -14,22 +14,23 @@ SimDir     := $(TargetDir)/sim
 ScriptsDir := $(RootDir)/scripts
 SW         ?= $(RootDir)/sw
 # Install tools
-VendorDir 					 ?= $(RootDir)vendor
-InstallDir 					 ?= $(VendorDir)/install
+VendorDir            ?= $(RootDir)vendor
+InstallDir           ?= $(VendorDir)/install
 # Verilator
-VerilatorVersion 		 ?= v5.034
+VerilatorVersion     ?= v5.034
 VerilatorInstallDir  := $(InstallDir)/verilator
-VerilatorCC  				 := gcc-11.2.0
-VerilatorCXX 				 := g++-11.2.0
+VerilatorCC          := gcc-11.2.0
+VerilatorCXX         := g++-11.2.0
 # GCC
-GccInstallDir 			 := $(InstallDir)/riscv
-Gcc           			 ?= $(GccInstallDir)/bin/
+GccInstallDir        := $(InstallDir)/riscv
+Gcc                  ?= $(GccInstallDir)/bin/
 # Bender
-RustupInit 					 := $(ScriptsDir)/rustup-init.sh
-CargoInstallDir 		 := $(InstallDir)/cargo
-RustupInstallDir 		 := $(InstallDir)/rustup
-Cargo 							 := $(CargoInstallDir)/bin/cargo
-Bender     					 ?= $(CargoInstallDir)/bin/bender
+BenderVersion        ?= 0.31.0
+RustupInit           := $(ScriptsDir)/rustup-init.sh
+CargoInstallDir      := $(InstallDir)/cargo
+RustupInstallDir     := $(InstallDir)/rustup
+Cargo                := $(CargoInstallDir)/bin/cargo
+Bender               ?= $(CargoInstallDir)/bin/bender
 # HW
 compile_script_synth ?= $(RootDir)scripts/synth_compile.tcl
 # SW
@@ -39,13 +40,20 @@ ARCH       ?= rv
 XLEN       ?= 32
 XTEN       ?= imc
 PYTHON     ?= python3
+# Golden Model
+OP     		?= gemm
+fp_fmt 		?= FP16
+M      		?= 4
+N      		?= 4
+K      		?= 4
+transpose ?= 1
 
 # Configuration Parameters
-target 	 			?= verilator
-gui      			?= 0
-verbose 			?= 0
-P_STALL  			?= 0.0
-DEBUG    			?= 1
+target        ?= verilator
+gui           ?= 0
+verbose       ?= 0
+P_STALL       ?= 0.0
+DEBUG         ?= 1
 OPOPE_COMPLEX ?= 0
 
 # Included makefrags
@@ -69,32 +77,15 @@ ifeq ($(debug),1)
 	FLAGS += -DDEBUG
 endif
 
-
-# Include directories
-
-# Build implicit rules
-
 #################
 #   Init Repo   #
 #################
 
 init: riscv32-gcc bender verilator
-	source scripts/setup-py.sh
-	
-init-iis:
-	ln -s /usr/scratch/pisoc2/dcammarata/opope/golden-model/venv golden-model/venv
-	ln -s /usr/scratch/pisoc2/dcammarata/opope/vendor vendor 
 
 ####################
 #   Golden Model   #
 ####################
-
-OP     		?= gemm
-fp_fmt 		?= FP16
-M      		?= 4
-N      		?= 4
-K      		?= 4
-transpose ?= 1
 
 golden: golden-clean
 	$(MAKE) -C golden-model $(OP) SW=$(SW)/inc M=$(M) N=$(N) K=$(K) fp_fmt=$(fp_fmt) transpose=$(transpose)
@@ -192,10 +183,13 @@ target/sim/toolchain/riscv-gnu-toolchain:
 		git submodule update --init --recursive --jobs=8 .
 
 riscv32-gcc: target/sim/toolchain/riscv-gnu-toolchain
+	rm -rf $(GccInstallDir)
 	mkdir -p $(GccInstallDir)
 	cd target/sim/toolchain/riscv-gnu-toolchain && rm -rf build && mkdir -p build && cd build && \
-	../configure --prefix=$(GccInstallDir) --with-arch=rv32imafd --with-abi=ilp32d --with-cmodel=medlow --enable-multilib && \
-	make MAKEINFO=true -j4
+	export PATH=$$(echo $$PATH | tr ':' '\n' | grep -v '$(GccInstallDir)' | tr '\n' ':') && \
+	CC=$(VerilatorCC) CXX=$(VerilatorCXX) \
+	../configure --prefix=$(GccInstallDir) --with-arch=rv32imafd --with-abi=ilp32d --with-cmodel=medlow --enable-multilib \
+	&& make MAKEINFO=true -j4
 
 ##############
 #   Bender   #
@@ -203,11 +197,12 @@ riscv32-gcc: target/sim/toolchain/riscv-gnu-toolchain
 
 bender: $(CargoInstallDir)/bin/bender
 $(CargoInstallDir)/bin/bender:
+	rm -rf $(CargoInstallDir) $(RustupInstallDir)
 	curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf > $(RustupInit)
 	mkdir -p $(InstallDir)
 	export CARGO_HOME=$(CargoInstallDir) && export RUSTUP_HOME=$(RustupInstallDir) && \
 	chmod +x $(RustupInit); source $(RustupInit) -y && \
-	$(Cargo) install bender
+	$(Cargo) install bender  --version $(BenderVersion)
 	rm -rf $(RustupInit)
 
 ###############
@@ -228,6 +223,7 @@ target/sim/toolchain/help2man:
 
 verilator: $(VerilatorInstallDir)/bin/verilator
 $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/toolchain/help2man
+	rm -rf $(VerilatorInstallDir)
 	cd target/sim/toolchain/help2man/help2man-1.49.3 && ./configure --prefix=$(VerilatorInstallDir) && make && make install
 	cd $<; unset VERILATOR_ROOT; \
 	autoconf && CC=$(VerilatorCC) CXX=$(VerilatorCXX) ./configure --prefix=$(VerilatorInstallDir) $(VERILATOR_CI) && \
