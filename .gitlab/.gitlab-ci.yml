@@ -93,14 +93,14 @@ opope-build-hwpe:
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
     
-    # Create venv with bundled pip, ensure it's fresh
+    # Create venv with clean pip
     - rm -rf venv
     - python3.6 -m venv venv --without-pip
-    - curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py
-    - venv/bin/python get-pip.py
-    - rm get-pip.py
+    - curl -L https://files.pythonhosted.org/packages/py3/p/pip/pip-21.3.1-py3-none-any.whl -o pip.whl
+    - venv/bin/python pip.whl/pip install --no-index pip.whl
+    - rm -rf pip.whl
     
-    # Now use venv pip explicitly
+    # Install deps
     - venv/bin/pip install --upgrade pip setuptools wheel
     - venv/bin/pip install numpy==1.19.5
     - venv/bin/pip install --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
