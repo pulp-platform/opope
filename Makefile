@@ -209,6 +209,8 @@ $(CargoInstallDir)/bin/bender:
 #  Verilator  #
 ###############
 
+GCC_SYSINCLUDE := /usr/pack/gcc-11.2.0-af/linux-x64/lib/gcc/x86_64-pc-linux-gnu/11.2.0/include
+
 target/sim/toolchain/verilator:
 	mkdir -p target/sim/toolchain
 	cd target/sim/toolchain && git clone https://github.com/verilator/verilator.git
@@ -233,6 +235,8 @@ $(VerilatorInstallDir)/bin/verilator: target/sim/toolchain/verilator target/sim/
 	cd $<; unset VERILATOR_ROOT;                             \
 		autoconf &&                                      \
 		CC=$(VerilatorCC) CXX=$(VerilatorCXX)            \
+		CFLAGS="-isystem $(GCC_SYSINCLUDE)"              \
+		CXXFLAGS="-isystem $(GCC_SYSINCLUDE)"            \
 		./configure --prefix=$(VerilatorInstallDir)      \
 		$(VERILATOR_CI) &&                               \
 		PATH=$(PATH):$(VerilatorInstallDir)/bin          \
