@@ -95,38 +95,10 @@ opope-build-hwpe:
     - rm -rf venv
     - python3.6 -m venv venv
     
-    # === DIAGNOSTIC CHECKS ===
-    - echo "=== venv python ==="
-    - venv/bin/python --version
-    - venv/bin/python -c "import sys; print(sys.executable); print(sys.path)"
-    
-    - echo "=== which pip ==="
-    - which pip
-    - venv/bin/pip --version
-    
-    - echo "=== pip show torch (before install) ==="
-    - venv/bin/pip list
-    
-    - echo "=== site-packages locations ==="
-    - venv/bin/python -c "import site; print(site.getsitepackages()); print(site.getusersitepackages())"
-    - ls -la venv/lib/python3.6/site-packages/ | head -20
-    
-    # === INSTALL ===
     - venv/bin/python -m pip install --upgrade pip setuptools wheel
     - venv/bin/python -m pip install numpy==1.19.5
     - venv/bin/python -m pip install --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-    
-    # === POST-INSTALL CHECKS ===
-    - echo "=== pip show torch (after install) ==="
-    - venv/bin/pip show torch
-    - venv/bin/pip list
-    
-    - echo "=== find torch files ==="
-    - find venv -name "torch" -type d 2>/dev/null
-    - find venv -name "torch*.dist-info" -type d 2>/dev/null
-    
-    - echo "=== import test ==="
-    - venv/bin/python -c "import sys; print(sys.path); import torch; print(f'PyTorch {torch.__version__} OK')"
+    - venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__} OK')"
   script:
     - source venv/bin/activate
     - export PATH=$CI_PROJECT_DIR/install/verilator/bin:$PATH
