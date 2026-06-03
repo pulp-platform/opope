@@ -93,14 +93,17 @@ opope-build-hwpe:
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
     
-    # Create venv in a reliable location
-    - python3.6 -m venv venv
-    - source venv/bin/activate
+    # Create venv with bundled pip, ensure it's fresh
+    - rm -rf venv
+    - python3.6 -m venv venv --without-pip
+    - curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py
+    - venv/bin/python get-pip.py
+    - rm get-pip.py
     
-    # Install deps
-    - pip install --upgrade pip setuptools wheel
-    - pip install numpy==1.19.5
-    - pip install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    # Now use venv pip explicitly
+    - venv/bin/pip install --upgrade pip setuptools wheel
+    - venv/bin/pip install numpy==1.19.5
+    - venv/bin/pip install --no-cache-dir torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
     
     - venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__} OK')"
   script:
