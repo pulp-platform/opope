@@ -9,6 +9,13 @@
     when: always
     expire_in: 1 week
 
+.opope-env:
+  before_script:
+    - export GCC_ROOT="$(dirname "$(dirname "$(which riscv32-unknown-elf-gcc)")")"
+  variables:
+    INSTALL_DIR: "$CI_PROJECT_DIR/install"
+    TRANSCRIPT: "$CI_PROJECT_DIR/target/sim/verilator/transcript"
+
 stages:
   - init
   - build
@@ -61,13 +68,15 @@ init:
 
 # --- Stage: Build ---
 .opope-build-tpl:
-  extends: .base
+  extends:
+    - .base
+    - .opope-env
   stage: build
   dependencies:
     - init
   script:
-    - make synth-ips target=verilator InstallDir=$CI_PROJECT_DIR/install
-    - make hw-build target=verilator InstallDir=$CI_PROJECT_DIR/install
+    - make synth-ips target=verilator InstallDir=${INSTALL_DIR}
+    - make hw-build target=verilator InstallDir=${INSTALL_DIR}
   artifacts:
     paths:
       - ./.bender
@@ -80,7 +89,9 @@ opope-build-hwpe:
 
 # --- Stage: Test ---
 .opope-sim-tpl:
-  extends: .base
+  extends:
+    - .base
+    - .opope-env
   stage: test
   dependencies:
     - init
@@ -90,10 +101,10 @@ opope-build-hwpe:
     - sed -i 's|deactivate|# deactivate|' golden-model/Makefile
     - sed -i 's|python3 |python3.6 |' golden-model/Makefile
     - make golden OP=${OP} M=${M} N=${N} K=${K} fp_fmt=${FMT}
-    - make sw-clean sw-build OPOPE_COMPLEX=${COMPLEX_MODE} GccInstallDir=$(dirname $(dirname $(which riscv32-unknown-elf-gcc)))
-    - make hw-run target=verilator InstallDir=$CI_PROJECT_DIR/install 2>&1 | tee ./target/sim/verilator/transcript
-    - grep -q "Success!" ./target/sim/verilator/transcript
-    - if grep -q "Fail!" ./target/sim/verilator/transcript; then exit 1; fi
+    - make sw-all OPOPE_COMPLEX=${COMPLEX_MODE} GccInstallDir=$(GCC_ROOT)
+    - make hw-run target=verilator InstallDir=${INSTALL_DIR} 2>&1 | tee ${TRANSCRIPT}
+    - grep -q "Success!" ${TRANSCRIPT}
+    - if grep -q "Fail!" ${TRANSCRIPT}; then exit 1; fi
 
 # Example for hwpe-specific test suite
 hwpe-test:
