@@ -58,8 +58,8 @@ init:
     - export PATH=/usr/bin:$PATH
     - python3.6 --version
     - python3.6 -m pip install --user setuptools wheel
-    - python3.6 -m pip install --user numpy==1.19.5
-    - python3.6 -m pip install --user torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    - python3.6 -m pip install --user numpy
+    - python3.6 -m pip install --user torch
   artifacts:
     paths:
       - ./vendor
