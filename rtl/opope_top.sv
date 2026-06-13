@@ -34,23 +34,19 @@ module opope_top
   input  logic                    test_mode_i,
   output logic                    busy_o     ,
   output logic [N_CORES-1:0][1:0] evt_o      ,
-`ifdef TARGET_OPOPE_COMPLEX
-  cv32e40x_if_xif.coproc_issue    xif_issue_if_i,
-  cv32e40x_if_xif.coproc_result   xif_result_if_o,
-  cv32e40x_if_xif.coproc_compressed xif_compressed_if_i,
-  cv32e40x_if_xif.coproc_mem        xif_mem_if_o,
-`elsif TARGET_OPOPE_HWPE
   // Periph slave port for the controller side
   hwpe_ctrl_intf_periph.slave periph,
-`endif
   // TCDM master ports for the memory side
-  hci_core_intf.initiator tcdm
+  hci_outstanding_intf.initiator tcdm
 );
 
 localparam int unsigned DATAW_ALIGN = DATAW;
 
 logic                       clear;
 logic                       start_cfg, cfg_complete;
+
+// Declaring the local periph
+hwpe_ctrl_intf_periph #( .ID_WIDTH  (ID_WIDTH) ) local_periph ( .clk(clk_i) );
 
 // Streamer control signals and flags
 cntrl_streamer_t cntrl_streamer;
@@ -64,12 +60,12 @@ flgs_scheduler_t  flgs_scheduler;
 // Register file binded from controller to FSM
 
 
-logic mask_y, mask_z;
+logic mask_y, mask_z, mask_y_source;
 logic y_ready,z_valid;
 logic z_ready;
 logic ce_clk_en;
 
-logic                           in_ready;
+logic in_ready;
 logic y_valid;
 logic [DATAW/8    -1:0] z_be;
 logic in_valid;
@@ -84,40 +80,26 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk
 /*--------------------------------------------------------------*/
 /* |                   Start Configuration                    | */
 /*--------------------------------------------------------------*/
-`ifdef TARGET_OPOPE_HWPE
-  /* If there is no Xif we directly plug the
-     control port into the hwpe-slave device */
-  assign start_cfg = ((periph.req) &&
-                      (periph.add[7:0] == 'h54) &&
-                      (!periph.wen) && (periph.gnt)) ? 1'b1 : 1'b0;
 
-`elsif TARGET_OPOPE_COMPLEX
-  hwpe_ctrl_intf_periph #( .ID_WIDTH  (ID_WIDTH) ) periph ( .clk(clk_i) );
-  /* If there is the Xif, we pass through the
-     instruction decoder and then enter into
-     the hwpe slave device */
-  logic [SysDataWidth-1:0] cfg_reg;
-  logic [SysDataWidth-1:0] sizem, sizen, sizek;
-  logic [SysDataWidth-1:0] x_addr, w_addr, y_addr, z_addr;
+/* If there is no Xif we directly plug the
+    control port into the hwpe-slave device */
+assign start_cfg = ((periph.req) &&
+                    (periph.add[7:0] == 'h54) &&
+                    (!periph.wen) && (periph.gnt)) ? 1'b1 : 1'b0;
 
-  opope_inst_decoder #(
-    .SysInstWidth       ( SysInstWidth       ),
-    .SysDataWidth       ( SysDataWidth       ),
-    .NumRfReadPrts      ( 3                  ) // FIXME: parametric
-  ) i_inst_decoder      (
-    .clk_i               ( clk_i               ),
-    .rst_ni              ( rst_ni              ),
-    .clear_i             ( clear               ),
-    .xif_issue_if_i      ( xif_issue_if_i      ),
-    .xif_result_if_o     ( xif_result_if_o     ),
-    .xif_compressed_if_i ( xif_compressed_if_i ),
-    .xif_mem_if_o        ( xif_mem_if_o        ),
-    .periph              ( periph              ),
-    .cfg_complete_i      ( cfg_complete        ),
-    .start_cfg_o         ( start_cfg           )
-  );
+// Bind periph port to local one
+assign local_periph.req  = periph.req;
+assign local_periph.add  = periph.add;
+assign local_periph.wen  = periph.wen;
+assign local_periph.be   = periph.be;
+assign local_periph.data = periph.data;
+assign local_periph.id   = periph.id;
+assign periph.gnt     = local_periph.gnt;
+assign periph.r_data  = local_periph.r_data;
+assign periph.r_valid = local_periph.r_valid;
+assign periph.r_id    = local_periph.r_id;                    
 
-`endif
+
 
 /*--------------------------------------------------------------*/
 /* |                         Streamer                         | */
@@ -125,26 +107,26 @@ hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW_ALIGN ) ) z_buffer         ( .clk
 /* The streamer will present a single master TCDM port used to  */
 /* stream data to and from the memory.                          */
 
-opope_streamer #(
-  .DW             ( DW                           ),
+opope_outstanding_streamer #(
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(tcdm) )
 ) i_streamer      (
-  .clk_i                    ( clk_i                 ),
-  .rst_ni                   ( rst_ni                ),
-  .test_mode_i              ( test_mode_i           ),
+  .clk_i           ( clk_i               ),
+  .rst_ni          ( rst_ni              ),
+  .test_mode_i     ( test_mode_i         ),
   // Controller generated signals
-  .enable_i                 ( 1'b1                  ),
-  .clear_i                  ( clear                 ),
-  .ctrl_i                   ( cntrl_streamer        ),
-  .flags_o                  ( flgs_streamer         ),
+  .enable_i        ( 1'b1                ),
+  .clear_i         ( clear               ),
+  .mask_y_i        ( mask_y_source       ),
   // Source interfaces for the incoming streams
-  .x_stream_o               ( x_buffer              ),
-  .w_stream_o               ( w_buffer              ),
-  .y_stream_o               ( y_buffer              ),
+  .x_stream_o      ( x_buffer            ),
+  .w_stream_o      ( w_buffer            ),
+  .y_stream_o      ( y_buffer            ),
   // Sink interface for the outgoing stream
-  .z_stream_i               ( z_buffer              ),
+  .z_stream_i      ( z_buffer            ),
   // Master TCDM interface ports for the memory side
-  .tcdm                     ( tcdm                  )
+  .tcdm            ( tcdm                ),  
+  .ctrl_i          ( cntrl_streamer      ),
+  .flags_o         ( flgs_streamer       )
 );
 
 
@@ -225,7 +207,7 @@ opope_ctrl        #(
   .evt_o              ( evt_o          ),
   .start_cfg_i        ( start_cfg      ),
   .cfg_complete_o     ( cfg_complete   ),
-  .periph             ( periph         ),
+  .periph             ( local_periph   ),
 
   // Buffers
   .mask_y_o           ( mask_y         ),
@@ -244,8 +226,8 @@ opope_ctrl        #(
   
   // Streamer
   .flgs_streamer_i    ( flgs_streamer  ),
-  .cntrl_streamer_o   ( cntrl_streamer )
-
+  .cntrl_streamer_o   ( cntrl_streamer ),
+  .mask_y_source_o    ( mask_y_source  )
 );
 
 

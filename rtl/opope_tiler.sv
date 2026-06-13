@@ -13,6 +13,7 @@ module opope_tiler
   input  logic              rst_ni     ,
   input  logic              clear_i    ,
   input  logic              setback_i  ,
+  input  logic              loopback_i ,
   input  logic              start_cfg_i,
   input  ctrl_regfile_t     reg_file_i ,
   output logic              valid_o    ,
@@ -22,15 +23,27 @@ module opope_tiler
 logic clk_en;
 logic clk_int;
 
+logic loopback_d, loopback_q;
+
 always_ff @(posedge clk_i, negedge rst_ni) begin: clock_gate_enabler
   if (~rst_ni) begin
     clk_en <= 1'b0;
   end else begin
     if (clear_i || setback_i) begin
       clk_en <= 1'b0;
-    end else if (start_cfg_i) begin
+    end else if (start_cfg_i || loopback_i) begin
       clk_en <= 1'b1;
     end
+  end
+end
+
+// Register loopback
+assign loopback_d = clear_i ? 1'b0 : (loopback_i ? 1'b1 : loopback_q);
+always_ff @(posedge clk_i, negedge rst_ni) begin: loopback_ff
+  if (~rst_ni) begin
+    loopback_q <= 1'b0;
+  end else begin
+    loopback_q <= loopback_d;
   end
 end
 
@@ -41,6 +54,7 @@ tc_clk_gating i_tiler_clockg (
   .clk_o      ( clk_int )
 );
 
+logic[15:0] m,n,k;
 logic km_valid;
 logic nkm_valid;
 logic valid_d,valid_q;
@@ -53,11 +67,14 @@ logic[15:0] operand_a,operand_b;
 logic[31:0] mult_prod;
 
 assign sel_d      = mult_done  ? ~sel_q : sel_q  ;
-assign mult_start = km_valid | start_cfg_i;
-assign operand_a  = sel_d ? (reg_file_i.hwpe_params[MCFIG1][15: 0] +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) 
-                          : (reg_file_i.hwpe_params[MCFIG0][15: 0] +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
+assign mult_start = km_valid | start_cfg_i | loopback_i;
+assign m = reg_file_i.hwpe_params[MCFIG0][15: 0];
+assign n = reg_file_i.hwpe_params[MCFIG1][15: 0];
+assign k = loopback_d ? reg_file_i.hwpe_params[MCFIG1][31:16] : reg_file_i.hwpe_params[MCFIG0][31:16] - reg_file_i.hwpe_params[MCFIG1][31:16];
+assign operand_a  = sel_d ? (n +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) 
+                          : (m +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
 assign operand_b  = sel_d ? mult_prod[15:0]                        
-                          : (reg_file_i.hwpe_params[MCFIG0][31:16] +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
+                          : (k +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
 assign km_valid   = mult_done & ~sel_q;
 assign nkm_valid  = mult_done &  sel_q;
 assign nkm        = sel_q ? mult_prod :        '0;
@@ -101,9 +118,10 @@ assign reg_file_o.generic_params = '0;
 assign reg_file_o.ext_data = '0;
 assign reg_file_o.hwpe_params[REGFILE_N_MAX_IO_REGS-1:OPOPE_REGS] = '0;
 assign reg_file_o.hwpe_params[      X_ADDR]        = reg_file_i.hwpe_params[X_ADDR];
-assign reg_file_o.hwpe_params[      W_ADDR]        = reg_file_i.hwpe_params[W_ADDR];
-assign reg_file_o.hwpe_params[      Z_ADDR]        = reg_file_i.hwpe_params[Z_ADDR];
-assign reg_file_o.hwpe_params[OP_SELECTION][31:1 ] = '0;
+assign reg_file_o.hwpe_params[      W_ADDR]        = loopback_d ? reg_file_i.hwpe_params[W_ADDR] : reg_file_i.hwpe_params[W_ADDR] + reg_file_i.hwpe_params[MCFIG1][31:16]*(BITW/8);
+assign reg_file_o.hwpe_params[      Z_ADDR]        = loopback_d ? reg_file_i.hwpe_params[Z_ADDR] : reg_file_i.hwpe_params[Z_ADDR] + reg_file_i.hwpe_params[MCFIG1][31:16]*(BITW/8);
+assign reg_file_o.hwpe_params[OP_SELECTION][31: 7] = '0;
+assign reg_file_o.hwpe_params[OP_SELECTION][ 6: 1] = reg_file_i.hwpe_params[MACFG][5:0]; // parallel_tiles
 assign reg_file_o.hwpe_params[OP_SELECTION][0]     = !shift;
 
 assign reg_file_o.hwpe_params[M_SIZE][15:0]        = reg_file_i.hwpe_params[MCFIG0][15: 0];

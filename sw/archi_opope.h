@@ -59,7 +59,9 @@
 #define ARRAY_WIDTH 8 /* Superior limit is ARRAY_HEIGHT*PIPE_REGS */
 
 // Base address
+#ifndef OPOPE_BASE_ADD
 #define OPOPE_BASE_ADD 0x00100000
+#endif
 
 // Commands
 #define OPOPE_TRIGGER 0x00

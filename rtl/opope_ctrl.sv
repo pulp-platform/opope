@@ -30,6 +30,7 @@ module opope_ctrl
   // Priority enforcer
   output logic                 mask_y_o,
   output logic                 mask_z_o,
+  output logic                 mask_y_source_o, // mask to stop Y requests 
   
   // Memory Scheduler
   input  flgs_streamer_t        flgs_streamer_i  ,
@@ -40,7 +41,7 @@ module opope_ctrl
   input  logic       y_in_valid_i       ,
   output logic [DATAW/8-1:0]  z_be_o    ,
   input  logic       out_ready_i        ,
-  output logic       y_ready_o,  
+  output logic       y_ready_o          ,  
   output logic       out_valid_o        ,
   output logic       in_ready_o         , 
   output logic       ce_clk_en_o        ,
@@ -57,6 +58,7 @@ module opope_ctrl
     OPOPE_LOAD_W,
     OPOPE_LOAD_Y,
     OPOPE_COMPUTING, 
+    OPOPE_LOOPBACK,
     OPOPE_FINISHED
   } opope_ctrl_state_e;
   opope_ctrl_state_e current, next;
@@ -64,6 +66,7 @@ module opope_ctrl
   logic clear, latch_clear;
   logic tiler_setback, tiler_valid;
   logic slave_start_d, slave_start_q;
+  logic set_offset_q, set_offset_d, loopback;
   logic change_state;
   logic last_iteration_d,last_iteration_q;
   
@@ -108,6 +111,7 @@ module opope_ctrl
   // Memory scheduler
   logic [31:0] total_len_x_w;
   logic [31:0] total_len_y_z;
+  logic [5:0] parallel_tiles;
 
   // Engine
   typedef enum logic [2:0] {
@@ -172,6 +176,7 @@ module opope_ctrl
     .rst_ni      ( rst_ni        ),
     .clear_i     ( clear         ),
     .setback_i   ( tiler_setback ),
+    .loopback_i  ( loopback      ),
     .start_cfg_i ( start_cfg_i   ),
     .reg_file_i  ( reg_file_d    ),
     .valid_o     ( tiler_valid   ),
@@ -190,10 +195,12 @@ module opope_ctrl
     case (current)
       OPOPE_LATCH_RST: next = OPOPE_IDLE;
       OPOPE_IDLE     : next = change_state  ? OPOPE_LOAD_W    : current;
+      OPOPE_LOOPBACK : next = change_state  ? OPOPE_LOAD_W    : current;
       OPOPE_LOAD_W   : next = OPOPE_LOAD_X;
       OPOPE_LOAD_X   : next = OPOPE_LOAD_Y;
       OPOPE_LOAD_Y   : next = change_state  ? OPOPE_COMPUTING : current;
-      OPOPE_COMPUTING: next = change_state  ? OPOPE_FINISHED  : current;
+      OPOPE_COMPUTING: next = change_state  ? (set_offset_q ? OPOPE_LOOPBACK : OPOPE_FINISHED)  : current;
+      // OPOPE_COMPUTING: next = change_state  ?  OPOPE_FINISHED : current;
       OPOPE_FINISHED : next = OPOPE_IDLE;
     endcase
     
@@ -213,16 +220,26 @@ module opope_ctrl
     cntrl_scheduler.start_load_x  = 1'b0;
     cntrl_scheduler.start_store_z = 1'b0;
     cntrl_scheduler.start_load_y  = 1'b0;
+    loopback                      = 1'b0;
+    set_offset_d                  = clear ? '0 : set_offset_q; // TODO check if clear should reset the set_offset here
     case (current)
       OPOPE_LATCH_RST: begin
         latch_clear = 1'b1;
         busy_o      = 1'b0;
+        set_offset_d = 1'b0;
       end
       OPOPE_IDLE     : begin
         change_state                   = slave_start_q & tiler_valid;
         tiler_setback                  = change_state;
         cntrl_scheduler.start_load_w = change_state;
+        set_offset_d = |reg_file_d.hwpe_params[MCFIG1][31:16];
         busy_o      = 1'b0;
+      end
+      OPOPE_LOOPBACK: begin
+        set_offset_d = 1'b0;        
+        change_state = tiler_valid;
+        tiler_setback = change_state;
+        cntrl_scheduler.start_load_w = change_state;
       end
       OPOPE_LOAD_W   : begin
         cntrl_scheduler.start_load_x  = 1'b1;
@@ -236,6 +253,9 @@ module opope_ctrl
       end
       OPOPE_COMPUTING: begin
         change_state = finished;
+        cntrl_scheduler.rst = change_state && set_offset_q;
+        cntrl_scheduler.finished = change_state && set_offset_q;
+        loopback = change_state && set_offset_q;
         ce_clk_en_o  = 1'b1;
       end
       OPOPE_FINISHED : begin
@@ -290,6 +310,7 @@ module opope_ctrl
     finished           = 1'b0;
     start_computing    = 1'b0;
     streamer_change_state =  1'b0;
+    mask_y_source_o    = 1'b0;
     
     case (streamer_current)
       STREAMER_Y  : begin
@@ -310,7 +331,7 @@ module opope_ctrl
         priority_counter_d    = priority_counter_q + grant;
         mask_y_o              = priority_counter_q[1] &~ compute_q;
         streamer_change_state = out_valid_o;
-        mask_z_o              = ~(streamer_change_state & done_q);
+        mask_y_source_o       = 1'b1;
       end
       STREAMER_XWZ: begin
         streamer_change_state = (y_counter_q == LoadCycles-1) & y_granted;
@@ -319,6 +340,7 @@ module opope_ctrl
         mask_y_o              = 1'b1;
         mask_z_o              = 1'b0;
         done_d                = last_iteration_q;
+        mask_y_source_o       = 1'b1;
       end 
       STREAMER_Z  : begin
         y_counter_d           = y_counter_q + y_granted;
@@ -363,6 +385,7 @@ module opope_ctrl
 
   assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] / (Width*W_REGBUFFER_DEPTH * Height) / 2;
   assign total_len_y_z = reg_file_q.hwpe_params[K_M] / (Width* 2);
+  assign parallel_tiles = reg_file_q.hwpe_params[OP_SELECTION][ 6: 1]; 
 
   always_comb begin : cntrl_streamer_signals
     // Here we initialize the streamer source signals
@@ -371,7 +394,7 @@ module opope_ctrl
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.base_addr     = reg_file_q.hwpe_params[X_ADDR];
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.tot_len       = total_len_x_w;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_len        = reg_file_q.hwpe_params[N_SIZE];
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[M_SIZE] * (BITW/8);
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d0_stride     = reg_file_q.hwpe_params[M_SIZE] * (BITW/8) * parallel_tiles;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_len        = (reg_file_q.hwpe_params[K_SIZE] +  Width*W_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d1_stride     = 'b0;
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
@@ -508,7 +531,7 @@ module opope_ctrl
           shift_acc           = 1'b1;
         end
         external_loading      = 1'b1;
-        y_ready_o             = 1'b1;
+        y_ready_o             = ~acc_change_state;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_LOAD_ENGINE: begin
@@ -517,15 +540,15 @@ module opope_ctrl
           z_read_reg_index_d = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1; // This can be used both ways
           acc_change_state = (z_read_reg_index_q == REG_PER_CE - 1);
         end
-        if (y_in_valid_i && prefetched_q == 1'b0) begin // Prefetch the y values
+        if (y_in_valid_i && prefetched_q == 1'b0 && acc_change_state) begin // Prefetch the y values
           y_write_reg_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? 'b0 : y_write_reg_index_q + 2;
           y_write_row_index_d = (y_write_reg_index_q == REG_PER_CE - 2) ? (y_write_row_index_q == Height-1) ? 'b0: y_write_row_index_q + 1 : y_write_row_index_q;
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
           shift_acc           = |y_write_row_index_q;
         end
         compute_d        = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
-        y_ready_o        = 1'b1;
-        external_loading = 1'b1;
+        y_ready_o        = acc_change_state;
+        external_loading = acc_change_state;
         y_bias_selector  = 1'b1;
         in_ready_o       = 1'b1;
         ce_enable        = in_valid_i;
@@ -580,6 +603,7 @@ module opope_ctrl
         acc_input_selector    = 1'b1;
         acc_done_d            = 1'b1;
         ce_enable             = 1'b1;
+        in_ready_o            = ~acc_change_state;
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_STORE: begin // Stream out the z values to the memory
@@ -646,6 +670,7 @@ module opope_ctrl
       last_iteration_q      <= '0;
       intm_loop_cnt_q       <= '0;
       compute_q             <= '0;
+      set_offset_q          <= '0;
     end else begin
       acc_state_current     <= acc_state_next       ;
       current               <= next                 ;
@@ -666,6 +691,7 @@ module opope_ctrl
       last_iteration_q      <= last_iteration_d     ;
       intm_loop_cnt_q       <= intm_loop_cnt_d      ;
       compute_q             <= compute_d            ;
+      set_offset_q          <= set_offset_d         ;
     end
   end
 

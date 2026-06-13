@@ -6,6 +6,7 @@
 //
 
 #include "archi_opope.h"
+#include "tensor_dim.h"
 #include "hal_opope.h"
 #include "opope_utils.h"
 #include <stdint.h>

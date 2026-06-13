@@ -39,10 +39,10 @@ module opope_buffers
   input  logic [DATA_WIDTH      -1:0]  z_data_i  
 );
 
-  localparam int unsigned X_FIFO_DEPTH = 0;
-  localparam int unsigned W_FIFO_DEPTH = 0;
-  localparam int unsigned Y_FIFO_DEPTH = 0;
-  localparam int unsigned Z_FIFO_DEPTH = 0;
+  localparam int unsigned X_FIFO_DEPTH = FIFO_BUFFER_DEPTH;
+  localparam int unsigned W_FIFO_DEPTH = FIFO_BUFFER_DEPTH;
+  localparam int unsigned Y_FIFO_DEPTH = FIFO_BUFFER_DEPTH;
+  localparam int unsigned Z_FIFO_DEPTH = FIFO_BUFFER_DEPTH;
 
   hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW ) ) x_fifo      ( .clk( clk_i ) );
   hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW ) ) w_fifo      ( .clk( clk_i ) );
@@ -116,8 +116,8 @@ module opope_buffers
 
   // Y stream
   logic y_ready_d,y_ready_q;
-  assign y_ready_d    = y_ready_i &~ mask_y_i ? 1'b1 :
-                        y_fifo.valid          ? 1'b0 : y_ready_q;
+  assign y_ready_d    = y_ready_i     ? 1'b1 :
+                        y_fifo.valid  ? 1'b0 : y_ready_q;
                         
   assign y_fifo.ready = y_ready_q;
   assign y_valid_o    = y_fifo.valid & y_ready_q;

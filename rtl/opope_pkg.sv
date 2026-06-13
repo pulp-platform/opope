@@ -11,7 +11,8 @@ import hwpe_stream_package::*;
 
 package opope_pkg;
 
-  parameter int unsigned            ARRAY_HEIGHT = 8;
+  parameter int unsigned            ARRAY_HEIGHT = `ifdef ARRAY_HEIGHT `ARRAY_HEIGHT `else 8 `endif;
+  parameter int unsigned            FIFO_BUFFER_DEPTH = `ifdef FIFO_BUFFER_DEPTH `FIFO_BUFFER_DEPTH `else 0 `endif;
   parameter fpnew_pkg::fp_format_e  FPFORMAT     = fpnew_pkg::FP16;
   parameter int unsigned            BITW         = fpnew_pkg::fp_width(FPFORMAT);
   parameter int unsigned            ARRAY_WIDTH  = ARRAY_HEIGHT;
@@ -21,8 +22,8 @@ package opope_pkg;
   parameter int unsigned            ADDR_W       = hci_package::DEFAULT_AW;
   parameter int unsigned            DATAW        = DATA_W - MemDw;
   parameter int unsigned            OPOPE_REGS = 22;
-  parameter int unsigned            N_CONTEXT    = 1;
-  parameter int unsigned            PIPE_REGS    = 4;
+  parameter int unsigned            N_CONTEXT    = 2;
+  parameter int unsigned            PIPE_REGS    = `ifdef PIPE_REGS `PIPE_REGS `else 4 `endif;
   parameter int unsigned            TOT_DEPTH    = DATAW/BITW;
   parameter int unsigned            DEPTH        = TOT_DEPTH/ARRAY_HEIGHT;
   parameter int unsigned            STRB         = DATA_W/8;

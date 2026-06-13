@@ -69,13 +69,13 @@ localparam hci_size_parameter_t `HCI_SIZE_PARAM(tcdm) = '{
   EHW: DEFAULT_EHW
 };
 
-hci_core_intf #(
-`ifndef SYNTHESIS
-  .WAIVE_RSP3_ASSERT ( 1'b1 ), // waive RSP-3 on memory-side of HCI FIFO
-  .WAIVE_RSP5_ASSERT ( 1'b1 ),  // waive RSP-5 on memory-side of HCI FIFO
-`endif
-  .DW ( DW ),
-  .EW ( EW ) ) tcdm ( .clk ( clk_i ) );
+hci_outstanding_intf #(
+    .DW (16 * ARRAY_HEIGHT * (PIPE_REGS + 1)), //
+    .UW (16),                                  //  HARD-CODED
+    .IW (4)                                    // 
+  ) tcdm (
+    .clk ( clk_i )
+  );
 
 hwpe_ctrl_intf_periph #(.ID_WIDTH(ID_WIDTH)) periph (.clk(clk_i));
 
