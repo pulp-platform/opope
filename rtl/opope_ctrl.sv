@@ -584,11 +584,13 @@ module opope_ctrl
       end
     // -------------------------------------------------------------------------------------------------------------------------------------
       ACC_Z_RELOAD_Y_ENGINE: begin // Storing the z values to acc, reload the y values to the engine
-        if (in_valid_i) inner_loop_counter_d = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
-        z_read_reg_index_d         = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
-        reg_write_to_engine_d      = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1; 
-        acc_change_state           = (z_read_reg_index_q == REG_PER_CE - 1);
-        acc_input_selector         = 1'b1;
+        if (in_valid_i) begin
+          inner_loop_counter_d      = (inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1)) ? 'b0 : inner_loop_counter_q + 1; // NOTE: should never 0 here
+          z_read_reg_index_d        = (z_read_reg_index_q == REG_PER_CE - 1) ? 'b0: z_read_reg_index_q + 1;
+          reg_write_to_engine_d     = (reg_write_to_engine_q == REG_PER_CE - 1) ? 'b0: reg_write_to_engine_q + 1;
+          acc_change_state          = (z_read_reg_index_q == REG_PER_CE - 1);
+          acc_input_selector        = 1'b1;
+        end
         y_bias_selector            = 1'b1;
         in_ready_o                 = 1'b1;
         ce_enable                  = in_valid_i;
