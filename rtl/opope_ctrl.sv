@@ -400,7 +400,9 @@ module opope_ctrl
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d2_stride     = Height * X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
-    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d3_len        = 'b0;
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.d4_stride     = 'b0;
+    cntrl_streamer_o.x_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 4'b0111;
 
     // Here we initialize the streamer source signals
     // for the W stream source
@@ -413,7 +415,9 @@ module opope_ctrl
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d2_stride     = 'b0;
     cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
-    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d3_len        = 'b0;
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.d4_stride     = 'b0;
+    cntrl_streamer_o.w_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 4'b0111;
 
     // Here we initialize the streamer source signals
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.base_addr     = reg_file_q.hwpe_params[Z_ADDR];
@@ -425,7 +429,9 @@ module opope_ctrl
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_len        = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d2_stride     = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d3_stride     = 'b0;
-    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 3'b111;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d3_len        = 'b0;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.d4_stride     = 'b0;
+    cntrl_streamer_o.y_stream_source_ctrl.addressgen_ctrl.dim_enable_1h = 4'b0111;
 
     // Here we initialize the streamer sink signals for
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.base_addr       = reg_file_q.hwpe_params[Z_ADDR];
@@ -437,7 +443,9 @@ module opope_ctrl
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_len          = (reg_file_q.hwpe_params[M_SIZE] +  Height*X_REGBUFFER_DEPTH -1) >> $clog2(Width*W_REGBUFFER_DEPTH);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d2_stride       = reg_file_q.hwpe_params[K_SIZE] * Height*X_REGBUFFER_DEPTH * (BITW/8);
     cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d3_stride       = 'b0;
-    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.dim_enable_1h   = 3'b111;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d3_len          = 'b0;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.d4_stride       = 'b0;
+    cntrl_streamer_o.z_stream_sink_ctrl.addressgen_ctrl.dim_enable_1h   = 4'b0111;
 
     // Req start assignements
     cntrl_streamer_o.x_stream_source_ctrl.req_start    = cntrl_scheduler.start_load_x  && flgs_streamer_i.x_stream_source_flags.ready_start;

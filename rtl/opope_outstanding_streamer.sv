@@ -29,7 +29,7 @@ module opope_outstanding_streamer
   // Engine Z output + HS signals (intput for the streamer)
   hwpe_stream_intf_stream.sink   z_stream_i,
   // TCDM interface between the streamer and the memory
-  hci_outstanding_intf.initiator        tcdm,
+  hci_variablelatency_intf.initiator   tcdm,
   // Control signals
   input  cntrl_streamer_t        ctrl_i,
   output flgs_streamer_t         flags_o
@@ -52,23 +52,56 @@ localparam hci_size_parameter_t `HCI_SIZE_PARAM(ldst_tcdm) = '{
   EHW: EHW
 };
 
+// hci-core interface within the streamer (mux output side)
+hci_core_intf #(
+  .WAIVE_RQ3_ASSERT  ( 1'b1 ),
+  .DW  ( DW  ),
+  .AW  ( DEFAULT_AW  ),
+  .BW  ( DEFAULT_BW  ),
+  .UW  ( UW  ),
+  .IW  ( IW  ),
+  .EW  ( EW  ),
+  .EHW ( EHW )
+) tcdm_core ( .clk ( clk_i ) );
+
+// Convert the internal hci-core stream to the external variable-latency TCDM.
+hci_variablelatency_tocore #(
+) i_convert2core (
+  .in  ( tcdm_core ),
+  .out ( tcdm      )
+);
+
 // Virtual internal TCDM interface splitting the upstream TCDM
 // X   -> virt_tcdm[0]
 // W   -> virt_tcdm[1]
 // Y   -> virt_tcdm[2]
 // Z   -> virt_tcdm[3]
-hci_outstanding_intf #(
+hci_core_intf #(
+  .WAIVE_RQ3_ASSERT  ( 1'b1 ),
+  .WAIVE_RQ4_ASSERT  ( 1'b1 ),
+  .WAIVE_RSP3_ASSERT ( 1'b1 ),
   .DW ( DW ),
+  .AW ( DEFAULT_AW ),
+  .BW ( DEFAULT_BW ),
   .UW ( UW ),
-  .IW ( IW ) ) virt_tcdm [0:NumStreamSources] ( .clk ( clk_i ) );
-hci_outstanding_intf #(
+  .IW ( IW ),
+  .EW ( EW ),
+  .EHW ( EHW ) ) virt_tcdm [0:NumStreamSources] ( .clk ( clk_i ) );
+hci_core_intf #(
+  .WAIVE_RQ3_ASSERT  ( 1'b1 ),
+  .WAIVE_RQ4_ASSERT  ( 1'b1 ),
+  .WAIVE_RSP3_ASSERT ( 1'b1 ),
   .DW ( DW ),
+  .AW ( DEFAULT_AW ),
+  .BW ( DEFAULT_BW ),
   .UW ( UW ),
-  .IW ( IW ) ) virt_tcdm_rob [0:NumStreamSources] ( .clk ( clk_i ) );
+  .IW ( IW ),
+  .EW ( EW ),
+  .EHW ( EHW ) ) virt_tcdm_rob [0:NumStreamSources] ( .clk ( clk_i ) );
 
 localparam int unsigned ROB_NW = 1 << UW;
 
-hci_outstanding_rob #(
+hci_core_rob #(
 	.ROB_NW ( ROB_NW ),
 	.`HCI_SIZE_PARAM(out) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_streamer_rob_x (
@@ -77,7 +110,7 @@ hci_outstanding_rob #(
 	.in 	( virt_tcdm[0] ),
 	.out 	( virt_tcdm_rob[0] )
 );
-hci_outstanding_rob #(
+hci_core_rob #(
 	.ROB_NW ( ROB_NW ),
 	.`HCI_SIZE_PARAM(out) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_streamer_rob_w (
@@ -86,7 +119,7 @@ hci_outstanding_rob #(
 	.in 	( virt_tcdm[1] ),
 	.out 	( virt_tcdm_rob[1] )
 );
-hci_outstanding_rob #(
+hci_core_rob #(
 	.ROB_NW ( ROB_NW ),
 	.`HCI_SIZE_PARAM(out) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_streamer_rob_y (
@@ -102,7 +135,7 @@ assign priority_encoding[0] = 0;
 assign priority_encoding[1] = 1;
 assign priority_encoding[2] = 2;
 assign priority_encoding[3] = 3;
-hci_outstanding_fifo #(
+hci_core_fifo #(
   .FIFO_DEPTH ( ARRAY_WIDTH ),
   .`HCI_SIZE_PARAM(tcdm_initiator) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_z_fifo (
@@ -115,7 +148,7 @@ hci_outstanding_fifo #(
 );
 
 // XWYZ-MUX A single TCDM port is used to load XW and to store Z / load Y
-hci_outstanding_mux #(
+hci_core_mux_ooo #(
   .NB_CHAN              ( NumStreamSources+1         ),
   .`HCI_SIZE_PARAM(out) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_ldst_mux          (
@@ -125,7 +158,7 @@ hci_outstanding_mux #(
   .priority_force_i   ( 1'b1                 ),
   .priority_i         ( priority_encoding    ),
   .in                 ( virt_tcdm_rob        ),
-  .out                ( tcdm                 )
+  .out                ( tcdm_core            )
 );
 
 /************************************ Store Channel *************************************/
@@ -136,13 +169,20 @@ hci_outstanding_mux #(
  * side (virt_tcdm[NumStreamSources]) of the LD/ST multiplexer.                         */
 
 // Store interface.
-hci_outstanding_intf #(
-  .DW ( DW ),
-  .UW ( UW ),
-  .IW ( IW ) ) z_store ( .clk ( clk_i ) );
+hci_core_intf #(
+  .WAIVE_RQ4_ASSERT  ( 1'b1 ),
+  .WAIVE_RSP3_ASSERT ( 1'b1 ),
+  .DW  ( DW ),
+  .AW  ( DEFAULT_AW ),
+  .BW  ( DEFAULT_BW ),
+  .UW  ( UW ),
+  .IW  ( IW ),
+  .EW  ( EW ),
+  .EHW ( EHW )
+) z_store ( .clk ( clk_i ) );
 
 // Sink module that turns the incoming Z stream into TCDM.
-hci_outstanding_sink #(
+hci_core_sink #(
   .MISALIGNED_ACCESSES ( REALIGN                      ),
   .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_stream_sink        (
@@ -158,7 +198,7 @@ hci_outstanding_sink #(
 );
 
 // Assigning the store output to the store side of the y/z multiplexer.
-hci_outstanding_assign i_store_assign ( .tcdm_target (z_store), .tcdm_initiator (virt_tcdm[3]) );
+hci_core_assign i_store_assign ( .tcdm_target (z_store), .tcdm_initiator (virt_tcdm[3]) );
 
 /**************************************** Load Channel ****************************************/
 /* The load channel of the streamer connects the incoming TCDM interface to three different   *
@@ -169,10 +209,16 @@ hci_outstanding_assign i_store_assign ( .tcdm_target (z_store), .tcdm_initiator 
  * the output of the cast connects to a dedicated HCI core source unit used to translate the  *
  * incoming TCDM protocls into stream.                                                        */
 
-hci_outstanding_intf #(
+hci_core_intf #(
+  .WAIVE_RQ4_ASSERT  ( 1'b1 ),
+  .WAIVE_RSP3_ASSERT ( 1'b1 ),
   .DW ( DW ),
+  .AW ( DEFAULT_AW ),
+  .BW ( DEFAULT_BW ),
   .UW ( UW ),
-  .IW ( IW ) ) tcdm_load [0:NumStreamSources-1] ( .clk ( clk_i ) );
+  .IW ( IW ),
+  .EW ( EW ),
+  .EHW ( EHW ) ) tcdm_load [0:NumStreamSources-1] ( .clk ( clk_i ) );
 
 hwpe_stream_intf_stream #( .DATA_WIDTH ( DATAW ) ) out_stream [NumStreamSources-1:0] ( .clk( clk_i ) );
 hci_package::hci_streamer_ctrl_t  [NumStreamSources-1:0] source_ctrl;
@@ -183,21 +229,12 @@ assign source_ctrl[XsourceStreamId]      = ctrl_i.x_stream_source_ctrl;
 assign source_ctrl[WsourceStreamId]      = ctrl_i.w_stream_source_ctrl;
 assign source_ctrl[YsourceStreamId]      = ctrl_i.y_stream_source_ctrl;
 
-logic [NumStreamSources-1:0] mask_source;
-
 for (genvar i = 0; i < NumStreamSources; i++) begin: gen_tcdm2stream
 
-  hci_outstanding_assign i_load_assign ( .tcdm_target (tcdm_load[i]), .tcdm_initiator (virt_tcdm[i]) );
-
-  assign mask_source[i] = (i == YsourceStreamId) & (mask_y_i);
-
-  // Load unit
-  // This unit uses only the data bus of the TCDM interface. The other buses
-  // are assigned manually.
-
-  hci_outstanding_source #(
+  hci_core_source #(
     .ADDR_MIS_DEPTH        ( ROB_NW                     ),
     .MISALIGNED_ACCESSES   ( REALIGN                    ),
+    .RESP_FIFO_DEPTH       ( ROB_NW                     ),
     .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(ldst_tcdm) )
   ) i_stream_source      (
     .clk_i               ( clk_i           ),
@@ -205,12 +242,39 @@ for (genvar i = 0; i < NumStreamSources; i++) begin: gen_tcdm2stream
     .test_mode_i         ( test_mode_i     ),
     .clear_i             ( clear_i         ),
     .enable_i            ( enable_i        ),
-    .mask_y_i            ( mask_source[i]  ),
     .tcdm                ( tcdm_load[i]    ),
     .stream              ( out_stream[i]   ),
     .ctrl_i              ( source_ctrl[i]  ),
     .flags_o             ( source_flags[i] )
   );
+
+  if (i == YsourceStreamId) begin : gen_y_masked
+    // Y request-gate: replicate hci_core_assign (tcdm_load[i] -> virt_tcdm[i])
+    // but force req/gnt low while mask_y_i is asserted, so Y issues no loads
+    // during a Z store (native hci_core_source has no mask port).
+    assign virt_tcdm[i].req      = tcdm_load[i].req & ~mask_y_i;
+    assign tcdm_load[i].gnt      = virt_tcdm[i].gnt & ~mask_y_i;
+    assign virt_tcdm[i].add      = tcdm_load[i].add;
+    assign virt_tcdm[i].wen      = tcdm_load[i].wen;
+    assign virt_tcdm[i].data     = tcdm_load[i].data;
+    assign virt_tcdm[i].be       = tcdm_load[i].be;
+    assign virt_tcdm[i].user     = tcdm_load[i].user;
+    assign virt_tcdm[i].id       = tcdm_load[i].id;
+    assign virt_tcdm[i].ecc      = tcdm_load[i].ecc;
+    assign virt_tcdm[i].ereq     = tcdm_load[i].ereq;
+    assign virt_tcdm[i].r_ready  = tcdm_load[i].r_ready;
+    assign virt_tcdm[i].r_eready = tcdm_load[i].r_eready;
+    assign tcdm_load[i].egnt     = virt_tcdm[i].egnt;
+    assign tcdm_load[i].r_data   = virt_tcdm[i].r_data;
+    assign tcdm_load[i].r_valid  = virt_tcdm[i].r_valid;
+    assign tcdm_load[i].r_user   = virt_tcdm[i].r_user;
+    assign tcdm_load[i].r_id     = virt_tcdm[i].r_id;
+    assign tcdm_load[i].r_opc    = virt_tcdm[i].r_opc;
+    assign tcdm_load[i].r_ecc    = virt_tcdm[i].r_ecc;
+    assign tcdm_load[i].r_evalid = virt_tcdm[i].r_evalid;
+  end else begin : gen_passthrough
+    hci_core_assign i_load_assign ( .tcdm_target (tcdm_load[i]), .tcdm_initiator (virt_tcdm[i]) );
+  end
 end
 
 // Assign flags in the vector to the relative output buses.
@@ -218,10 +282,10 @@ assign flags_o.x_stream_source_flags = source_flags[XsourceStreamId];
 assign flags_o.w_stream_source_flags = source_flags[WsourceStreamId];
 assign flags_o.y_stream_source_flags = source_flags[YsourceStreamId];
 
-assign flags_o.x_granted = virt_tcdm[XsourceStreamId].req_valid & virt_tcdm[XsourceStreamId].req_ready;
-assign flags_o.w_granted = virt_tcdm[WsourceStreamId].req_valid & virt_tcdm[WsourceStreamId].req_ready;
-assign flags_o.y_granted = ( virt_tcdm[YsourceStreamId].req_valid & virt_tcdm[YsourceStreamId].req_ready ) |
-                           ( z_store.req_valid & z_store.req_ready );
+assign flags_o.x_granted = virt_tcdm[XsourceStreamId].req & virt_tcdm[XsourceStreamId].gnt;
+assign flags_o.w_granted = virt_tcdm[WsourceStreamId].req & virt_tcdm[WsourceStreamId].gnt;
+assign flags_o.y_granted = ( virt_tcdm[YsourceStreamId].req & virt_tcdm[YsourceStreamId].gnt ) |
+                           ( z_store.req & z_store.gnt );
 
 // Assign resulting streams.
 hwpe_stream_assign i_xstream_assign ( .push_i( out_stream[XsourceStreamId] ) ,

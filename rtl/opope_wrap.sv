@@ -69,7 +69,7 @@ localparam hci_size_parameter_t `HCI_SIZE_PARAM(tcdm) = '{
   EHW: DEFAULT_EHW
 };
 
-hci_outstanding_intf #(
+hci_variablelatency_intf #(
     .DW (16 * ARRAY_HEIGHT * (PIPE_REGS + 1)), //
     .UW (16),                                  //  HARD-CODED
     .IW (4)                                    // 
@@ -84,22 +84,19 @@ logic [N_CORES-1:0][1:0] evt;
 
 
 for(genvar ii=0; ii<MP; ii++) begin: gen_tcdm_binding
-  assign tcdm_req_o  [ii] = tcdm.req;
-  assign tcdm_add_o  [ii] = tcdm.add + ii*4;
-  assign tcdm_wen_o  [ii] = tcdm.wen;
-  assign tcdm_be_o   [ii] = tcdm.be[(ii+1)*4-1:ii*4];
-  assign tcdm_data_o [ii] = tcdm.data[(ii+1)*32-1:ii*32];
+  assign tcdm_req_o  [ii] = tcdm.req_valid;
+  assign tcdm_add_o  [ii] = tcdm.req_add + ii*4;
+  assign tcdm_wen_o  [ii] = tcdm.req_wen;
+  assign tcdm_be_o   [ii] = tcdm.req_be[(ii+1)*4-1:ii*4];
+  assign tcdm_data_o [ii] = tcdm.req_data[(ii+1)*32-1:ii*32];
 end
-assign tcdm_ecc_o    = tcdm.ecc;
-assign tcdm.gnt      = &(tcdm_gnt_i);
-assign tcdm.r_valid  = &(tcdm_r_valid_i);
-assign tcdm.r_data   = { >> {tcdm_r_data_i} };
-assign tcdm.r_opc    = tcdm_r_opc_i;
-assign tcdm.r_user   = tcdm_r_user_i;
-assign tcdm.r_ecc    = tcdm_r_ecc_i;
-assign tcdm.r_id     = '0;
-assign tcdm.egnt     = '1;
-assign tcdm.r_evalid = '0;
+assign tcdm_ecc_o      = '0;
+assign tcdm.req_ready  = &(tcdm_gnt_i);
+assign tcdm.resp_valid = &(tcdm_r_valid_i);
+assign tcdm.resp_data  = { >> {tcdm_r_data_i} };
+assign tcdm.resp_opc   = tcdm_r_opc_i;
+assign tcdm.resp_user  = tcdm_r_user_i;
+assign tcdm.resp_id    = '0;
 
 assign periph.req     = periph_req_i;
 assign periph.add     = periph_add_i;

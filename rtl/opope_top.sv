@@ -37,7 +37,7 @@ module opope_top
   // Periph slave port for the controller side
   hwpe_ctrl_intf_periph.slave periph,
   // TCDM master ports for the memory side
-  hci_outstanding_intf.initiator tcdm
+  hci_variablelatency_intf.initiator tcdm
 );
 
 localparam int unsigned DATAW_ALIGN = DATAW;
