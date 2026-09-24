@@ -27,6 +27,9 @@ sources:
   # OPE
     - rtl/opope_pkg.sv
     - rtl/opope_accumulator.sv
+    - rtl/opope_sdotp_legacy.sv
+    - rtl/opope_sdotp_multi_modules.sv
+    - rtl/opope_sdotp_multi.sv
     - rtl/opope_sdotp.sv
     - rtl/opope_sdotp_wrapper.sv
     - rtl/opope_fma.sv
