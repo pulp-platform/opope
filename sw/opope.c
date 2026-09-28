@@ -5,11 +5,11 @@
 // Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
 
+#include <stdint.h>
 #include "archi_opope.h"
 #include "tensor_dim.h"
 #include "hal_opope.h"
 #include "opope_utils.h"
-#include <stdint.h>
 
 #include "w_input.h"
 #include "x_input.h"
@@ -56,9 +56,9 @@ int main() {
   while ((offload_id_tmp = hwpe_acquire_job()) < 0)
     ;
 
-  opope_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size, k_size,
-            (uint8_t)gemm_ops, comp_fmt,
-            mem_fmt); // Keep the gemm_ops GEMM for both the sdotp and the fma
+  opope_cfg((unsigned int)x, (unsigned int)w, (unsigned int)y, m_size, n_size, k_size, 0,
+            (uint8_t)gemm_ops, comp_fmt, mem_fmt,
+            1); // Keep the gemm_ops GEMM for both the sdotp and the fma
   hwpe_trigger_job();
 
   asm volatile("wfi" ::: "memory");

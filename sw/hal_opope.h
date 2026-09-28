@@ -9,7 +9,6 @@
 #define __HAL_OPOPE_H__
 
 #include <stdint.h>
-#include "tensor_dim.h"
 
 /* LOW-LEVEL HAL */
 #define OPOPE_ADDR_BASE OPOPE_BASE_ADD
@@ -51,14 +50,14 @@ static inline void hwpe_cg_enable() { return; }
 
 static inline void hwpe_cg_disable() { return; }
 
-void opope_cfg(unsigned int x, unsigned int w, unsigned int z, uint16_t m_size, uint16_t n_size,
-               uint16_t k_size, uint16_t w_col_off, uint8_t gemm_op, uint8_t comp_fmt,
-               uint8_t mem_fmt, uint8_t parallel_tiles) {
+static inline void opope_cfg(unsigned int x, unsigned int w, unsigned int z, uint16_t m_size,
+                             uint16_t n_size, uint16_t k_size, uint16_t w_col_off, uint8_t gemm_op,
+                             uint8_t comp_fmt, uint8_t mem_fmt, uint8_t parallel_tiles) {
 
   uint32_t mcfg_reg0 = 0;
   uint32_t mcfg_reg1 = 0;
   uint32_t arith_reg = 0;
-  uint8_t mixed_dt = COMP_FMT != MEM_FMT;
+  uint8_t mixed_dt = comp_fmt != mem_fmt;
   uint8_t shift = n_size & mixed_dt;
 
   mcfg_reg0 = (k_size << 16) | (m_size << 0);
