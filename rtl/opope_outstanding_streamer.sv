@@ -141,7 +141,7 @@ hci_core_fifo #(
 ) i_z_fifo (
   .clk_i  ( clk_i   ),
   .rst_ni ( rst_ni  ),
-  .clear_i         ( clear_i          ),
+  .clear_i         ( 1'b0             ), // XXX Another signal should probably force clear the FIFO
   .flags_o         ( z_fifo_flags     ),
   .tcdm_target     ( virt_tcdm[3]     ),
   .tcdm_initiator  ( virt_tcdm_rob[3] )
