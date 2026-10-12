@@ -136,7 +136,7 @@ assign priority_encoding[1] = 1;
 assign priority_encoding[2] = 2;
 assign priority_encoding[3] = 3;
 hci_core_fifo #(
-  .FIFO_DEPTH ( ARRAY_WIDTH ),
+  .FIFO_DEPTH ( StoreFifoDepth ),
   .`HCI_SIZE_PARAM(tcdm_initiator) ( `HCI_SIZE_PARAM(ldst_tcdm) )
 ) i_z_fifo (
   .clk_i  ( clk_i   ),

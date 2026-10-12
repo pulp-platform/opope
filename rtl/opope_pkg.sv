@@ -33,6 +33,7 @@ package opope_pkg;
   parameter int unsigned X_REGBUFFER_DEPTH = 2;
   parameter int unsigned W_REGBUFFER_DEPTH = 2;
   parameter int unsigned REG_PER_CE        = X_REGBUFFER_DEPTH * W_REGBUFFER_DEPTH;
+  parameter int unsigned StoreFifoDepth    = `ifdef STORE_FIFO_DEPTH `STORE_FIFO_DEPTH `else 2 `endif;
   parameter int unsigned ACC_RD_PORTS      = 2;
   parameter int unsigned ACC_WR_PORTS      = 2;
 
