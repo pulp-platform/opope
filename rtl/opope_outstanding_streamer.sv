@@ -131,9 +131,10 @@ hci_core_rob #(
 
 flags_fifo_t z_fifo_flags;
 logic [NumStreamSources:0][$clog2(NumStreamSources+1)-1:0] priority_encoding;
-assign priority_encoding[0] = 0;
-assign priority_encoding[1] = 1;
-assign priority_encoding[2] = 2;
+// Order of the loads from the controller; the store is always last
+assign priority_encoding[0] = ctrl_i.custom_priority[0];
+assign priority_encoding[1] = ctrl_i.custom_priority[1];
+assign priority_encoding[2] = ctrl_i.custom_priority[2];
 assign priority_encoding[3] = 3;
 hci_core_fifo #(
   .FIFO_DEPTH ( StoreFifoDepth ),
@@ -155,7 +156,7 @@ hci_core_mux_ooo #(
   .clk_i              ( clk_i                ),
   .rst_ni             ( rst_ni               ),
   .clear_i            ( clear_i              ),
-  .priority_force_i   ( 1'b1                 ),
+  .priority_force_i   ( ctrl_i.custom_priority_force ),
   .priority_i         ( priority_encoding    ),
   .in                 ( virt_tcdm_rob        ),
   .out                ( tcdm_core            )
@@ -284,8 +285,8 @@ assign flags_o.y_stream_source_flags = source_flags[YsourceStreamId];
 
 assign flags_o.x_granted = virt_tcdm[XsourceStreamId].req & virt_tcdm[XsourceStreamId].gnt;
 assign flags_o.w_granted = virt_tcdm[WsourceStreamId].req & virt_tcdm[WsourceStreamId].gnt;
-assign flags_o.y_granted = ( virt_tcdm[YsourceStreamId].req & virt_tcdm[YsourceStreamId].gnt ) |
-                           ( z_store.req & z_store.gnt );
+assign flags_o.y_granted = virt_tcdm[YsourceStreamId].req & virt_tcdm[YsourceStreamId].gnt;
+assign flags_o.z_granted = z_store.req & z_store.gnt;
 
 // Assign resulting streams.
 hwpe_stream_assign i_xstream_assign ( .push_i( out_stream[XsourceStreamId] ) ,

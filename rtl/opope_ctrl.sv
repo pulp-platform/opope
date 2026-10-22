@@ -77,12 +77,6 @@ module opope_ctrl
   // Stremear controller signals
   localparam int unsigned LoadCycles = ARRAY_HEIGHT*ARRAY_WIDTH*REG_PER_CE*BITW/DATAW;
   
-  typedef enum logic [1:0] {
-    PRIORITY_X,
-    PRIORITY_W,
-    PRIORITY_YZ
-  } opope_priority_level_e;
-
   typedef enum logic [2:0] {
     STREAMER_Y,
     STREAMER_XWY,
@@ -91,7 +85,6 @@ module opope_ctrl
     STREAMER_Z
   } opope_priority_state_e;
 
-  opope_priority_level_e priority_level;
   opope_priority_state_e streamer_current,streamer_next;
 
   cntrl_scheduler_t cntrl_scheduler;
@@ -103,6 +96,8 @@ module opope_ctrl
   logic x_granted;
   logic w_granted;
   logic y_granted;
+  logic z_granted;
+  logic yz_granted;
 
   logic[$clog2(LoadCycles)-1:0] y_counter_d,y_counter_q;
   logic[$clog2(LoadCycles)-1:0] extra_d,extra_q;
@@ -278,7 +273,9 @@ module opope_ctrl
   assign x_granted = flgs_streamer_i.x_granted;
   assign w_granted = flgs_streamer_i.w_granted;
   assign y_granted = flgs_streamer_i.y_granted;
-  assign grant = x_granted | w_granted | y_granted;
+  assign z_granted = flgs_streamer_i.z_granted;
+  assign yz_granted = y_granted | z_granted;
+  assign grant = x_granted | w_granted | yz_granted;
 
   always_comb begin : streamer_fsm
     case (streamer_current)
@@ -314,36 +311,38 @@ module opope_ctrl
     
     case (streamer_current)
       STREAMER_Y  : begin
-       y_counter_d           = y_counter_q + y_granted;
+       y_counter_d           = y_counter_q + yz_granted;
        streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
        priority_counter_d    = 2'b11 + streamer_change_state;
        start_computing       = streamer_change_state;
       end
       STREAMER_XWY: begin
         extra_d               = 1'b0;
-        y_counter_d           = y_counter_q + y_granted;
+        y_counter_d           = y_counter_q + yz_granted;
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
         priority_counter_d    = priority_counter_q + grant;
         done_d                = last_iteration_q;
       end
       STREAMER_XWM: begin
-        extra_d               = extra_q + y_granted;
+        extra_d               = extra_q + yz_granted;
         priority_counter_d    = priority_counter_q + grant;
         mask_y_o              = priority_counter_q[1] &~ compute_q;
         streamer_change_state = out_valid_o;
         mask_y_source_o       = 1'b1;
       end
       STREAMER_XWZ: begin
-        streamer_change_state = (y_counter_q == LoadCycles-1) & y_granted;
-        y_counter_d           = streamer_change_state ? extra_q : y_counter_q + y_granted;
+        // Stores counted in y_counter; the bias loads of the next tile, issued meanwhile, in extra
+        streamer_change_state = (y_counter_q == LoadCycles-1) & z_granted;
+        extra_d               = extra_q + y_granted;
+        y_counter_d           = streamer_change_state ? extra_d : y_counter_q + z_granted;
+        mask_y_source_o       = (extra_q == LoadCycles-1);
         priority_counter_d    = priority_counter_q + grant;
         mask_y_o              = 1'b1;
         mask_z_o              = 1'b0;
         done_d                = last_iteration_q;
-        mask_y_source_o       = 1'b1;
       end 
       STREAMER_Z  : begin
-        y_counter_d           = y_counter_q + y_granted;
+        y_counter_d           = y_counter_q + yz_granted;
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
         priority_counter_d    = 2'b11;
         mask_z_o              = 1'b0;
@@ -357,30 +356,16 @@ module opope_ctrl
 
     cntrl_streamer_o.custom_priority_force = 1'b1;
 
-    case (priority_counter_q)
-      2'b00  : priority_level = PRIORITY_X ;
-      2'b01  : priority_level = PRIORITY_W ;
-      2'b10  : priority_level = PRIORITY_YZ;
-      default: priority_level = PRIORITY_YZ;
-    endcase
-
-    case (priority_level)
-      PRIORITY_X   : begin
-        cntrl_streamer_o.custom_priority[0] = XsourceStreamId;
-        cntrl_streamer_o.custom_priority[1] = WsourceStreamId;
-        cntrl_streamer_o.custom_priority[2] = YsourceStreamId;
-      end
-      PRIORITY_W   : begin
-        cntrl_streamer_o.custom_priority[0] = WsourceStreamId;
-        cntrl_streamer_o.custom_priority[1] = YsourceStreamId;
-        cntrl_streamer_o.custom_priority[2] = XsourceStreamId;
-      end
-      PRIORITY_YZ  :begin
-        cntrl_streamer_o.custom_priority[0] = YsourceStreamId;
-        cntrl_streamer_o.custom_priority[1] = XsourceStreamId;
-        cntrl_streamer_o.custom_priority[2] = WsourceStreamId;
-      end
-    endcase
+    // Y first while its loads are not masked; X and W alternate per grant
+    if (!mask_y_source_o) begin
+      cntrl_streamer_o.custom_priority[0] = YsourceStreamId;
+      cntrl_streamer_o.custom_priority[1] = priority_counter_q[0] ? WsourceStreamId : XsourceStreamId;
+      cntrl_streamer_o.custom_priority[2] = priority_counter_q[0] ? XsourceStreamId : WsourceStreamId;
+    end else begin
+      cntrl_streamer_o.custom_priority[0] = priority_counter_q[0] ? WsourceStreamId : XsourceStreamId;
+      cntrl_streamer_o.custom_priority[1] = priority_counter_q[0] ? XsourceStreamId : WsourceStreamId;
+      cntrl_streamer_o.custom_priority[2] = YsourceStreamId;
+    end
   end
 
   assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] / (Width*W_REGBUFFER_DEPTH * Height) / 2;

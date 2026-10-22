@@ -177,7 +177,8 @@ package opope_pkg;
     hci_package::hci_streamer_flags_t z_stream_sink_flags  ;
     logic                             x_granted            ; 
     logic                             w_granted            ; 
-    logic                             y_granted            ;  
+    logic                             y_granted            ;
+    logic                             z_granted            ;
   } flgs_streamer_t;
 
   typedef struct packed {
