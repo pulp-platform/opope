@@ -69,6 +69,11 @@ module opope_ctrl
   logic set_offset_q, set_offset_d, loopback;
   logic change_state;
   logic last_iteration_d,last_iteration_q;
+  logic computing_d, computing_q;
+  logic        matmul;
+  logic [31:0] tiles_total;
+  logic [31:0] tiles_landed_d, tiles_landed_q;
+  logic        landing_d, landing_q;
   
   hwpe_ctrl_package::ctrl_regfile_t reg_file_d, reg_file_q;
   hwpe_ctrl_package::ctrl_slave_t   cntrl_slave;
@@ -241,7 +246,7 @@ module opope_ctrl
       end
       OPOPE_LOAD_X   : begin
         cntrl_scheduler.start_store_z = 1'b1;
-        cntrl_scheduler.start_load_y  = 1'b1;
+        cntrl_scheduler.start_load_y  = ~matmul;
       end
       OPOPE_LOAD_Y   : begin
         change_state = start_computing;
@@ -312,7 +317,8 @@ module opope_ctrl
     case (streamer_current)
       STREAMER_Y  : begin
        y_counter_d           = y_counter_q + yz_granted;
-       streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
+       streamer_change_state = ((y_counter_q == LoadCycles-1) & (y_counter_d =='0)) |
+                               (matmul & (current == OPOPE_LOAD_Y));
        priority_counter_d    = 2'b11 + streamer_change_state;
        start_computing       = streamer_change_state;
       end
@@ -322,6 +328,10 @@ module opope_ctrl
         streamer_change_state = (y_counter_q == LoadCycles-1) & (y_counter_d =='0);
         priority_counter_d    = priority_counter_q + grant;
         done_d                = last_iteration_q;
+        if (matmul) begin
+          streamer_change_state = computing_q;
+          y_counter_d           = '0;
+        end
       end
       STREAMER_XWM: begin
         extra_d               = extra_q + yz_granted;
@@ -443,7 +453,18 @@ module opope_ctrl
   /*                                          Engine FSM                                         */
   /*---------------------------------------------------------------------------------------------*/
 
-  assign last_iteration_d = cntrl_scheduler.finished ? '0 : flgs_streamer_i.y_stream_source_flags.done | last_iteration_q;
+  assign matmul      = reg_file_q.hwpe_params[OP_SELECTION][7];
+  assign computing_d = (current == OPOPE_COMPUTING);
+  assign tiles_total = reg_file_q.hwpe_params[K_M] >> (2*$clog2(Height*W_REGBUFFER_DEPTH));
+  assign landing_d   = (acc_state_current == ACC_Z_RELOAD_Y_ENGINE) |
+                       (acc_state_current == ACC_Z_RELOAD);
+  assign tiles_landed_d = (clear || cntrl_scheduler.finished) ? '0 :
+                          tiles_landed_q + 32'(landing_d & ~landing_q);
+  assign last_iteration_d = cntrl_scheduler.finished ? '0 :
+                            (matmul ? ((current == OPOPE_COMPUTING) &
+                                       (tiles_landed_q + 1 == tiles_total))
+                                    : flgs_streamer_i.y_stream_source_flags.done) |
+                            last_iteration_q;
 
   always_comb begin : acc_fsm
     acc_state_next = acc_state_current;
@@ -523,6 +544,7 @@ module opope_ctrl
           acc_change_state    = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2);
           shift_acc           = 1'b1;
         end
+        if (matmul) acc_change_state = 1'b1;
         external_loading      = 1'b1;
         y_ready_o             = ~acc_change_state;
       end
@@ -539,6 +561,7 @@ module opope_ctrl
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
           shift_acc           = |y_write_row_index_q;
         end
+        if (matmul) prefetched_d = 1'b1;
         compute_d        = inner_loop_counter_q == (cntrl_engine_o.inner_loop_count - 1 );
         y_ready_o        = acc_change_state;
         external_loading = acc_change_state;
@@ -554,6 +577,7 @@ module opope_ctrl
           prefetched_d        = (y_write_row_index_q == Height - 1 && y_write_reg_index_q == REG_PER_CE - 2) ?  1'b1 : prefetched_q;
           shift_acc           = |y_write_row_index_q;
         end
+        if (matmul) prefetched_d = 1'b1;
         if (prefetched_q == 1'b1 && acc_state_current == ACC_Y_READ_ENGINE_RUNNING && acc_state_next == ACC_Z_RELOAD_Y_ENGINE) prefetched_d = 1'b0; // Reloaded value completed
         y_ready_o        = ~(prefetched_d ) &~ prefetched_q; //~acc_change_state;
         in_ready_o       = ~ compute_q;
@@ -639,6 +663,7 @@ module opope_ctrl
     cntrl_engine_o.in_ready            = in_ready_o;
     cntrl_engine_o.reg_enable          = ce_enable;
     cntrl_engine_o.shift_acc           = shift_acc;
+    cntrl_engine_o.matmul              = matmul;
   end
 
   /*---------------------------------------------------------------------------------------------*/
@@ -666,6 +691,9 @@ module opope_ctrl
       intm_loop_cnt_q       <= '0;
       compute_q             <= '0;
       set_offset_q          <= '0;
+      computing_q           <= '0;
+      tiles_landed_q        <= '0;
+      landing_q             <= '0;
     end else begin
       acc_state_current     <= acc_state_next       ;
       current               <= next                 ;
@@ -687,6 +715,9 @@ module opope_ctrl
       intm_loop_cnt_q       <= intm_loop_cnt_d      ;
       compute_q             <= compute_d            ;
       set_offset_q          <= set_offset_d         ;
+      computing_q           <= computing_d          ;
+      tiles_landed_q        <= tiles_landed_d       ;
+      landing_q             <= landing_d            ;
     end
   end
 

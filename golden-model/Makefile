@@ -62,7 +62,7 @@ matmul: check_sw
 	$(PYTHON) ./scripts/$@.py                   \
 	--m_size $(M) --n_size $(N) --k_size $(K) \
 	--inc_dir $(SW)                           \
-	--txt_dir $(CUR_DIR)/$@/txt;
+	--txt_dir $(CUR_DIR)/$@/txt --transpose $(transpose);
 
 maxmin: check_sw
 	mkdir -p $@/txt;                          \
@@ -101,4 +101,4 @@ golden-clean:
 	rm -rf FP8/net_parameters.h
 	rm -rf FP16/scripts/__pycache__
 	rm -rf FP8/scripts/__pycache__
-	rm -rf addmax addmin gemm maxmin minmax mulmax mulmin
+	rm -rf addmax addmin gemm matmul maxmin minmax mulmax mulmin

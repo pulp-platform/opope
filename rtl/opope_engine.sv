@@ -110,7 +110,9 @@ module opope_engine
         assign acc_operand[row_index][col_index]    = reg_out_data[row_index][col_index][cntrl_engine_i.z_read_reg_index[0]*BITW +: BITW];
         assign ce_operands[row_index][col_index][0] = x_input_i[row_index];
         assign ce_operands[row_index][col_index][1] = w_input_i[col_index];
-        assign ce_operands[row_index][col_index][2] = (cntrl_engine_i.y_bias_selector) ? acc_operand[row_index][col_index]: engine_to_reg_output[row_index][col_index] ;
+        assign ce_operands[row_index][col_index][2] = (cntrl_engine_i.y_bias_selector) ?
+            (cntrl_engine_i.matmul ? '0 : acc_operand[row_index][col_index]) :
+            engine_to_reg_output[row_index][col_index];
         opope_accumulator #(
           .DATA_WIDTH ( BITW          ),
           .DEPTH      ( REG_PER_CE    )

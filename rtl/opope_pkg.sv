@@ -274,6 +274,7 @@ package opope_pkg;
     logic in_ready          ;
     logic reg_enable        ;
     logic same_fmt          ;
+    logic matmul            ;
   } cntrl_engine_t;
 
   typedef enum logic [1:0] {

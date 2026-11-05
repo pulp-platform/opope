@@ -120,7 +120,9 @@ assign reg_file_o.hwpe_params[REGFILE_N_MAX_IO_REGS-1:OPOPE_REGS] = '0;
 assign reg_file_o.hwpe_params[      X_ADDR]        = reg_file_i.hwpe_params[X_ADDR];
 assign reg_file_o.hwpe_params[      W_ADDR]        = loopback_d ? reg_file_i.hwpe_params[W_ADDR] : reg_file_i.hwpe_params[W_ADDR] + reg_file_i.hwpe_params[MCFIG1][31:16]*(BITW/8);
 assign reg_file_o.hwpe_params[      Z_ADDR]        = loopback_d ? reg_file_i.hwpe_params[Z_ADDR] : reg_file_i.hwpe_params[Z_ADDR] + reg_file_i.hwpe_params[MCFIG1][31:16]*(BITW/8);
-assign reg_file_o.hwpe_params[OP_SELECTION][31: 7] = '0;
+assign reg_file_o.hwpe_params[OP_SELECTION][31: 8] = '0;
+assign reg_file_o.hwpe_params[OP_SELECTION][7]     =
+    (gemm_op_e'(reg_file_i.hwpe_params[MACFG][12:10]) == MATMUL);
 assign reg_file_o.hwpe_params[OP_SELECTION][ 6: 1] = reg_file_i.hwpe_params[MACFG][5:0]; // parallel_tiles
 assign reg_file_o.hwpe_params[OP_SELECTION][0]     = !shift;
 

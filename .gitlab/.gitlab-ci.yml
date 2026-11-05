@@ -128,6 +128,26 @@ hwpe-test:
       - { OP: gemm, M: 15, N: 32, K: 71, FMT: FP8FP16 }
       - { OP: gemm, M: 37, N: 47, K: 96, FMT: FP8FP16 }
       - { OP: gemm, M: 41, N: 63, K: 13, FMT: FP8FP16 }
+      - { OP: matmul, M: 16, N: 64, K: 32, FMT: FP16 }
+      - { OP: matmul, M: 32, N: 96, K: 18, FMT: FP16 }
+      - { OP: matmul, M: 64, N: 53, K: 16, FMT: FP16 }
+      - { OP: matmul, M: 96, N: 21, K: 45, FMT: FP16 }
+      - { OP: matmul, M: 57, N: 16, K: 64, FMT: FP16 }
+      - { OP: matmul, M: 15, N: 32, K: 71, FMT: FP16 }
+      - { OP: matmul, M: 37, N: 47, K: 96, FMT: FP16 }
+      - { OP: matmul, M: 41, N: 63, K: 13, FMT: FP16 }
+      - { OP: matmul, M: 15, N: 37, K: 13, FMT: FP16 }
+      - { OP: matmul, M: 16, N: 37, K: 16, FMT: FP16 }
+      - { OP: matmul, M: 16, N: 64, K: 32, FMT: FP8FP16 }
+      - { OP: matmul, M: 32, N: 96, K: 18, FMT: FP8FP16 }
+      - { OP: matmul, M: 64, N: 53, K: 16, FMT: FP8FP16 }
+      - { OP: matmul, M: 96, N: 21, K: 45, FMT: FP8FP16 }
+      - { OP: matmul, M: 57, N: 16, K: 64, FMT: FP8FP16 }
+      - { OP: matmul, M: 15, N: 32, K: 71, FMT: FP8FP16 }
+      - { OP: matmul, M: 37, N: 47, K: 96, FMT: FP8FP16 }
+      - { OP: matmul, M: 41, N: 63, K: 13, FMT: FP8FP16 }
+      - { OP: matmul, M: 15, N: 37, K: 13, FMT: FP8FP16 }
+      - { OP: matmul, M: 16, N: 37, K: 16, FMT: FP8FP16 }
 
 # Complex test suite
 complex-test:
