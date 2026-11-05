@@ -11,7 +11,6 @@ module opope_outstanding_streamer
   import hci_package::*;
   import hwpe_stream_package::*;
 #(
-  localparam int unsigned REALIGN = 0     ,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(tcdm) = '0
 )(
   input logic                    clk_i,
@@ -40,6 +39,12 @@ localparam int unsigned UW  = `HCI_SIZE_GET_UW(tcdm);
 localparam int unsigned IW  = `HCI_SIZE_GET_IW(tcdm);
 localparam int unsigned EW  = `HCI_SIZE_GET_EW(tcdm);
 localparam int unsigned EHW  = `HCI_SIZE_GET_EHW(tcdm);
+// A port one bank word wider than the stream realigns rows that are not word-aligned
+localparam int unsigned REALIGN = (DW == DATAW + MemDw);
+
+if (DW != DATAW && DW != DATAW + MemDw) begin : gen_dw_check
+  $error("opope_outstanding_streamer: DW must be DATAW or DATAW + MemDw");
+end
 
 // this localparam is reused for all internal, non-ecc HCI interfaces
 localparam hci_size_parameter_t `HCI_SIZE_PARAM(ldst_tcdm) = '{
