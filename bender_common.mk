@@ -18,3 +18,7 @@ endif
 common_targs += -t DEBUG
 
 common_defs  += -D COREV_ASSERT_OFF
+
+ifeq ($(OPOPE_OUTSTANDING),1)
+	common_defs += -D OPOPE_OUTSTANDING
+endif

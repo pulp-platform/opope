@@ -12,6 +12,7 @@ module tb_dummy_memory
   parameter MP          = 1,
   parameter MEMORY_SIZE = 1024,
   parameter BASE_ADDR   = 0,
+  parameter int unsigned ID_WIDTH = 1,
   parameter time TCP = 1.0,   // clock period, 1GHz clock
   parameter time TA  = 0.2,   // application time
   parameter time TT  = 0.8    // test time
@@ -23,6 +24,8 @@ module tb_dummy_memory
   // input  logic                randomize_i,
   input  logic                enable_i,
   input  logic                stallable_i,
+  input  logic [MP-1:0][ID_WIDTH-1:0] tcdm_id_i,
+  output logic [MP-1:0][ID_WIDTH-1:0] tcdm_r_id_o,
   hwpe_stream_intf_tcdm.slave tcdm [MP-1:0]
 );
 
@@ -44,6 +47,7 @@ module tb_dummy_memory
   logic [MP-1:0]       tcdm_r_valid;
   logic [MP-1:0][31:0] tcdm_r_data_int;
   logic [MP-1:0]       tcdm_r_valid_int;
+  logic [MP-1:0][ID_WIDTH-1:0] tcdm_r_id_int;
 
   real probs [MP-1:0];
 
@@ -135,6 +139,18 @@ module tb_dummy_memory
 
   assign tcdm_r_data  = tcdm_r_data_int;
   assign tcdm_r_valid = tcdm_r_valid_int;
+
+  // Each response returns its request's id
+  always_ff @(posedge clk_i or negedge rst_ni) begin : id_proc
+    if (~rst_ni) begin
+      tcdm_r_id_int <= '0;
+    end else begin
+      for (int i=0; i<MP; i++)
+        tcdm_r_id_int[i] <= (tcdm_req[i] & enable_i & tcdm_gnt[i]) ? tcdm_id_i[i] : '0;
+    end
+  end
+
+  assign tcdm_r_id_o = tcdm_r_id_int;
 
   generate
 

@@ -39,6 +39,12 @@ module opope_tb
   localparam logic [31:0] HWPE_ADDR_BASE_BIT = 20;
   localparam bit          USE_ECC = 0;
   localparam int unsigned EW = (USE_ECC) ? 72 : DEFAULT_EW;
+`ifdef OPOPE_OUTSTANDING
+  localparam int unsigned NumOutstanding = 16;
+  localparam int unsigned TcdmIdW = $clog2(NumStreamSources + 1) + $clog2(NumOutstanding);
+`else
+  localparam int unsigned TcdmIdW = 1;
+`endif
 
   // global signals
   string stim_instr, stim_data;
@@ -64,6 +70,8 @@ module opope_tb
   logic                tcdm_r_opc;
   logic                tcdm_r_user;
   logic [EW-1:0]       tcdm_r_ecc;
+  logic [MP:0][TcdmIdW-1:0] tcdm_id;
+  logic [MP:0][TcdmIdW-1:0] tcdm_r_id;
 
   logic          periph_req;
   logic          periph_gnt;
@@ -148,6 +156,10 @@ module opope_tb
   assign tcdm[MP].data = data_wdata;
   assign tcdm_r_opc   = 0;
   assign tcdm_r_user  = 0;
+  assign tcdm_id[MP]  = '0;
+`ifndef OPOPE_OUTSTANDING
+  assign tcdm_id[MP-1:0] = '0;
+`endif
   assign data_gnt    = periph_req ?
                        periph_gnt : stack[0].req ?
                                     stack[0].gnt : tcdm[MP].req ?
@@ -200,7 +212,20 @@ module opope_tb
     );
   end
 
-`ifndef OPOPE_HWPE_SYNTH
+`ifdef OPOPE_OUTSTANDING
+  opope_outstanding_wrap #(
+    .ID_WIDTH      ( ID     ),
+    .N_CORES       ( NC     ),
+    .DW            ( DW     ),
+    .MP            ( DW/32  ),
+    .EW            ( EW     ),
+    .N_OUTSTANDING ( NumOutstanding )
+  ) i_opope_wrap (
+    .tcdm_id_o          ( tcdm_id[MP-1:0]    ),
+    .tcdm_r_id_i        ( tcdm_r_id[MP-1:0]  ),
+`elsif OPOPE_HWPE_SYNTH
+  opope_wrap i_opope_wrap (
+`else
   opope_wrap #(
     .ID_WIDTH ( ID     ),
     .N_CORES  ( NC     ),
@@ -208,8 +233,6 @@ module opope_tb
     .MP       ( DW/32  ),
     .EW       ( EW     )
   ) i_opope_wrap (
-`else
-  opope_wrap i_opope_wrap (
 `endif
     .clk_i              ( clk_i              ),
     .rst_ni             ( rst_ni             ),
@@ -245,6 +268,7 @@ module opope_tb
     .MP             ( MP + 1        ),
     .MEMORY_SIZE    ( 512 * 1024 ),
     .BASE_ADDR      ( 32'h1c010000  ),
+    .ID_WIDTH       ( TcdmIdW       ),
     .TCP            ( TCP           ),
     .TA             ( TA            ),
     .TT             ( TT            )
@@ -256,6 +280,8 @@ module opope_tb
     // .randomize_i    ( 1'b0          ),
     .enable_i       ( 1'b1          ),
     .stallable_i    ( 1'b1          ),
+    .tcdm_id_i      ( tcdm_id       ),
+    .tcdm_r_id_o    ( tcdm_r_id     ),
     .tcdm           ( tcdm          )
   );
 
@@ -274,6 +300,8 @@ module opope_tb
     // .randomize_i    ( 1'b0        ),
     .enable_i       ( 1'b1        ),
     .stallable_i    ( 1'b0        ),
+    .tcdm_id_i      ( '0          ),
+    .tcdm_r_id_o    (             ),
     .tcdm           ( instr       )
   );
 
@@ -292,6 +320,8 @@ module opope_tb
     // .randomize_i         ( 1'b0              ),
     .enable_i            ( 1'b1              ),
     .stallable_i         ( 1'b0              ),
+    .tcdm_id_i           ( '0                ),
+    .tcdm_r_id_o         (                   ),
     .tcdm                ( stack             )
   );
 

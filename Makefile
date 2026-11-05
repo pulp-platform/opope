@@ -55,6 +55,7 @@ verbose       ?= 0
 P_STALL       ?= 0.0
 DEBUG         ?= 1
 OPOPE_COMPLEX ?= 0
+OPOPE_OUTSTANDING ?= 1
 
 # Included makefrags
 include $(SimDir)/$(target)/$(target).mk

@@ -86,6 +86,7 @@ init:
 opope-build-hwpe:
   extends: .opope-build-tpl
   variables:
+    OPOPE_OUTSTANDING: "1"
 
 # --- Stage: Test ---
 .opope-sim-tpl:

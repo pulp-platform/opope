@@ -44,6 +44,7 @@ sources:
     - target: opope_hwpe
       files:
         - rtl/opope_wrap.sv
+        - rtl/opope_outstanding_wrap.sv
 
     - target: opope_complex
       files:
