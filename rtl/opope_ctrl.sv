@@ -368,7 +368,7 @@ module opope_ctrl
     end
   end
 
-  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] / (Width*W_REGBUFFER_DEPTH * Height) / 2;
+  assign total_len_x_w = reg_file_q.hwpe_params[N_K_M] * W_REGBUFFER_DEPTH / 2;
   assign total_len_y_z = reg_file_q.hwpe_params[K_M] / (Width* 2);
   assign parallel_tiles = reg_file_q.hwpe_params[OP_SELECTION][ 6: 1]; 
 

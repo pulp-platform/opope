@@ -73,7 +73,7 @@ assign n = reg_file_i.hwpe_params[MCFIG1][15: 0];
 assign k = loopback_d ? reg_file_i.hwpe_params[MCFIG1][31:16] : reg_file_i.hwpe_params[MCFIG0][31:16] - reg_file_i.hwpe_params[MCFIG1][31:16];
 assign operand_a  = sel_d ? (n +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) 
                           : (m +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
-assign operand_b  = sel_d ? mult_prod[15:0]                        
+assign operand_b  = sel_d ? 16'(mult_prod >> (2*$clog2(ARRAY_HEIGHT*W_REGBUFFER_DEPTH)))
                           : (k +  ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1) &~ 16'(ARRAY_HEIGHT*W_REGBUFFER_DEPTH -1);
 assign km_valid   = mult_done & ~sel_q;
 assign nkm_valid  = mult_done &  sel_q;
