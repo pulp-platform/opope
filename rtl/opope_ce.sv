@@ -12,7 +12,12 @@ module opope_ce #(
   localparam int unsigned            BITW        = fpnew_pkg::fp_width(FpFormat),
   // Do not change
   localparam int unsigned  FMA_ACTIVE    = 1,
+  // -DOPOPE_SDOTP_ACTIVE=0 leaves out the SDOTP unit (mixed-format results are then 0)
+`ifdef OPOPE_SDOTP_ACTIVE
+  localparam int unsigned  SDOTP_ACTIVE  = `OPOPE_SDOTP_ACTIVE,
+`else
   localparam int unsigned  SDOTP_ACTIVE  = 1,
+`endif
   localparam fpnew_pkg::fmt_logic_t  FpFmtConfigSdotp  = (FpFormat==fpnew_pkg::FP32) ? 6'b101000 : 6'b001100
 )(
   input  logic                 clk_i       ,
